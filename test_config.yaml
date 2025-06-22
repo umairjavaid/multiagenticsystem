@@ -1,0 +1,144 @@
+agents:
+- description: A test agent for demonstration
+  global_tools:
+  - Logger
+  - StoreMemory
+  - GlobalTool
+  id: 87c6307f-b238-4c6d-b784-18cf4b57c5d9
+  llm_config: {}
+  llm_model: gpt-3.5-turbo
+  llm_provider: openai
+  local_tools:
+  - SimpleTool
+  max_iterations: 10
+  memory_enabled: true
+  name: TestAgent1
+  shared_tools:
+  - SharedTool
+  system_prompt: You are a helpful test agent.
+- description: Another test agent
+  global_tools:
+  - Logger
+  - StoreMemory
+  - GlobalTool
+  id: 4fb8bca4-33c0-4623-bc9c-f09ee12a1b9a
+  llm_config: {}
+  llm_model: claude-3.5-sonnet
+  llm_provider: anthropic
+  local_tools: []
+  max_iterations: 10
+  memory_enabled: true
+  name: TestAgent2
+  shared_tools:
+  - SharedTool
+  system_prompt: You are also a helpful test agent.
+automations: []
+tasks:
+- current_step: 0
+  description: A simple test task
+  execution_context: {}
+  id: 00920c5c-43a5-4f20-ba2f-bb4b682c33a9
+  max_retries: 3
+  name: TestTask
+  parallel: false
+  results: []
+  retry_count: 0
+  status: pending
+  steps:
+  - agent: TestAgent1
+    condition: null
+    context: {}
+    error: null
+    input: process this data
+    result: null
+    status: pending
+    tool: SimpleTool
+  - agent: TestAgent2
+    condition: null
+    context: {}
+    error: null
+    input: finalize results
+    result: null
+    status: pending
+    tool: GlobalTool
+  timeout: null
+tools:
+- description: Log messages for debugging and tracking
+  id: bbdb1410-a0ac-49fe-bf68-7e590fcd3dcf
+  is_global: true
+  last_used_by: null
+  local_agent: null
+  name: Logger
+  parameters:
+    properties:
+      level:
+        default: info
+        enum:
+        - debug
+        - info
+        - warning
+        - error
+        type: string
+      message:
+        description: Message to log
+        type: string
+    required:
+    - message
+    type: object
+  scope: global
+  shared_agents: []
+  usage_count: 0
+- description: Store information in memory
+  id: 32a9ff9a-5c9f-4714-b369-d1e054f1c566
+  is_global: true
+  last_used_by: null
+  local_agent: null
+  name: StoreMemory
+  parameters:
+    properties:
+      key:
+        description: Key to store under
+        type: string
+      value:
+        description: Value to store
+        type: string
+    required:
+    - key
+    - value
+    type: object
+  scope: global
+  shared_agents: []
+  usage_count: 0
+- description: A simple tool
+  id: aa49c0d6-d5fa-441d-bf6b-cda2455cd179
+  is_global: false
+  last_used_by: TestAgent1
+  local_agent: TestAgent1
+  name: SimpleTool
+  parameters: {}
+  scope: local
+  shared_agents: []
+  usage_count: 1
+- description: A shared tool
+  id: 45ba2e88-40b4-49eb-a02b-d276d2e15d73
+  is_global: false
+  last_used_by: TestAgent1
+  local_agent: null
+  name: SharedTool
+  parameters: {}
+  scope: shared
+  shared_agents:
+  - TestAgent1
+  - TestAgent2
+  usage_count: 1
+- description: A global tool
+  id: 52b3f5d3-ab76-4281-868c-09b4d6b72125
+  is_global: true
+  last_used_by: TestAgent2
+  local_agent: null
+  name: GlobalTool
+  parameters: {}
+  scope: global
+  shared_agents: []
+  usage_count: 1
+triggers: []
