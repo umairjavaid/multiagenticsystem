@@ -4,6 +4,7 @@ Core agent implementation with LLM provider abstraction.
 
 import uuid
 from typing import Any, Dict, List, Optional, Union
+import json
 
 try:
     from pydantic import BaseModel, Field
