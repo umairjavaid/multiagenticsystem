@@ -30,9 +30,17 @@ from multiagenticsystem.core.system import System
 from multiagenticsystem.core.agent import Agent
 from multiagenticsystem.core.tool import Tool
 from multiagenticsystem.core.task import Task
-from multiagenticsystem.utils.logger import get_logger
+from multiagenticsystem.utils.logger import get_logger, setup_logging
 
-logger = get_logger(__name__)
+# Set up logging for the flutter builder example
+setup_logging(
+    level="INFO",
+    log_dir="./flutter_builder_logs",
+    session_id=f"flutter_builder_{int(asyncio.get_event_loop().time() if hasattr(asyncio, 'get_event_loop') else 0)}",
+    format_type="detailed"
+)
+
+logger = get_logger("flutter_builder")
 
 
 def create_terminal_tool() -> Tool:
@@ -345,6 +353,11 @@ def create_flutter_tasks() -> List[Task]:
 async def main():
     """Main function to demonstrate the Flutter app builder system."""
     
+    logger.info("Starting Flutter App Builder - Multi-Agent System", extra={
+        "component": "main",
+        "operation": "startup"
+    })
+    
     print("🚀 Flutter App Builder - Multi-Agent System")
     print("=" * 50)
     
@@ -352,21 +365,51 @@ async def main():
     openai_key = os.getenv("OPENAI_API_KEY")
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")
     
+    logger.debug("Checking API key configuration", extra={
+        "component": "main",
+        "operation": "auth_check",
+        "metadata": {
+            "openai_key_present": bool(openai_key and openai_key != 'your-openai-api-key-here'),
+            "anthropic_key_present": bool(anthropic_key)
+        }
+    })
+    
     print(f"🔑 OPENAI_API_KEY: {'✅ Set' if openai_key and openai_key != 'your-openai-api-key-here' else '❌ Missing/Invalid'}")
     print(f"🔑 ANTHROPIC_API_KEY: {'✅ Set' if anthropic_key else '❌ Missing'}")
     
     if not ((openai_key and openai_key != "your-openai-api-key-here") or anthropic_key):
+        logger.error("No valid API keys found", extra={
+            "component": "main",
+            "operation": "auth_check",
+            "metadata": {"error": "missing_api_keys"}
+        })
         print("\n❌ No valid API keys found! Please check your .env file.")
         print("   Make sure to set either OPENAI_API_KEY or ANTHROPIC_API_KEY with actual values.")
         print("   Current OPENAI_API_KEY appears to be a placeholder.")
         return
+    
+    logger.info("Creating multi-agent system", extra={
+        "component": "main",
+        "operation": "system_creation"
+    })
     
     # Create the system
     system = System()
     
     # Create and register agents
     try:
+        logger.info("Creating implementation agent", extra={
+            "component": "main",
+            "operation": "agent_creation",
+            "agent_type": "implementation"
+        })
         impl_agent = create_implementation_agent()
+        
+        logger.info("Creating testing agent", extra={
+            "component": "main", 
+            "operation": "agent_creation",
+            "agent_type": "testing"
+        })
         test_agent = create_testing_agent()
         
         system.register_agents(impl_agent, test_agent)

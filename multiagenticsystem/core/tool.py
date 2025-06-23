@@ -158,29 +158,78 @@ class Tool:
         Returns:
             Dict with execution results
         """
+        import time
+        start_time = time.time()
         agent_name = agent.name if hasattr(agent, 'name') else str(agent)
+        
+        # Log tool execution start
+        logger.log_tool_execution(
+            tool_name=self.name,
+            agent_name=agent_name,
+            parameters={
+                "args": args,
+                "kwargs": kwargs,
+                "scope": self.scope.value
+            }
+        )
         
         try:
             # Check permissions
             if not self.can_be_used_by(agent):
-                raise PermissionError(
-                    f"Agent '{agent_name}' does not have permission to use tool '{self.name}'"
-                )
+                error_msg = f"Agent '{agent_name}' does not have permission to use tool '{self.name}'"
+                logger.log_system_event("tool_permission_denied", {
+                    "tool": self.name,
+                    "agent": agent_name,
+                    "scope": self.scope.value,
+                    "reason": "permission_denied"
+                }, level="WARNING")
+                raise PermissionError(error_msg)
             
             # Execute the function
             if self.func is None:
-                raise ValueError(f"Tool '{self.name}' has no function defined")
+                error_msg = f"Tool '{self.name}' has no function defined"
+                logger.log_system_event("tool_execution_error", {
+                    "tool": self.name,
+                    "agent": agent_name,
+                    "error": "no_function_defined"
+                }, level="ERROR")
+                raise ValueError(error_msg)
+            
+            # Log pre-execution details
+            logger.log_system_event("tool_pre_execution", {
+                "tool": self.name,
+                "agent": agent_name,
+                "function_name": getattr(self.func, '__name__', 'unknown'),
+                "args_count": len(args),
+                "kwargs_keys": list(kwargs.keys())
+            })
             
             # Handle async functions
             if hasattr(self.func, '__call__'):
                 if hasattr(self.func, '__code__') and self.func.__code__.co_flags & 0x80:
                     # Async function
+                    logger.log_system_event("tool_async_execution", {
+                        "tool": self.name,
+                        "agent": agent_name
+                    })
                     result = await self.func(*args, **kwargs)
                 else:
                     # Sync function
+                    logger.log_system_event("tool_sync_execution", {
+                        "tool": self.name,
+                        "agent": agent_name
+                    })
                     result = self.func(*args, **kwargs)
             else:
-                raise ValueError(f"Tool '{self.name}' function is not callable")
+                error_msg = f"Tool '{self.name}' function is not callable"
+                logger.log_system_event("tool_execution_error", {
+                    "tool": self.name,
+                    "agent": agent_name,
+                    "error": "function_not_callable"
+                }, level="ERROR")
+                raise ValueError(error_msg)
+            
+            execution_time = time.time() - start_time
             
             # Update tracking
             self.usage_count += 1
@@ -192,11 +241,30 @@ class Tool:
                 "kwargs": str(kwargs)[:100],
                 "result": str(result)[:100],
                 "success": True,
-                "timestamp": logger.name  # Placeholder
+                "timestamp": time.time(),
+                "execution_time": execution_time
             }
             self.execution_history.append(execution_record)
             
-            logger.debug(f"Tool '{self.name}' executed successfully by '{agent_name}'")
+            # Log successful execution
+            logger.log_tool_execution(
+                tool_name=self.name,
+                agent_name=agent_name,
+                parameters={
+                    "args": args,
+                    "kwargs": kwargs
+                },
+                result=result,
+                execution_time=execution_time
+            )
+            
+            logger.log_system_event("tool_execution_success", {
+                "tool": self.name,
+                "agent": agent_name,
+                "execution_time": execution_time,
+                "usage_count": self.usage_count,
+                "result_type": type(result).__name__
+            })
             
             return {
                 "tool_name": self.name,
@@ -205,29 +273,55 @@ class Tool:
                 "success": True,
                 "metadata": {
                     "usage_count": self.usage_count,
-                    "execution_time": 0  # Placeholder
+                    "execution_time": execution_time,
+                    "scope": self.scope.value
                 }
             }
             
         except Exception as e:
+            execution_time = time.time() - start_time
+            
             error_record = {
                 "agent": agent_name,
                 "args": str(args)[:100],
                 "kwargs": str(kwargs)[:100],
                 "error": str(e),
                 "success": False,
-                "timestamp": logger.name
+                "timestamp": time.time(),
+                "execution_time": execution_time
             }
             self.execution_history.append(error_record)
             
-            logger.error(f"Tool '{self.name}' execution failed for '{agent_name}': {e}")
+            # Log error
+            logger.log_tool_execution(
+                tool_name=self.name,
+                agent_name=agent_name,
+                parameters={
+                    "args": args,
+                    "kwargs": kwargs
+                },
+                result=f"ERROR: {str(e)}",
+                execution_time=execution_time
+            )
+            
+            logger.log_system_event("tool_execution_error", {
+                "tool": self.name,
+                "agent": agent_name,
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "execution_time": execution_time
+            }, level="ERROR")
             
             return {
                 "tool_name": self.name,
                 "agent": agent_name,
                 "result": None,
                 "error": str(e),
-                "success": False
+                "success": False,
+                "metadata": {
+                    "execution_time": execution_time,
+                    "scope": self.scope.value
+                }
             }
     
     def get_schema(self) -> Dict[str, Any]:

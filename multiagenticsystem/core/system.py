@@ -13,7 +13,7 @@ from .tool import Tool, create_logger_tool, create_memory_tool
 from .task import Task, Collaboration
 from .trigger import Trigger
 from .automation import Automation
-from ..utils.logger import get_logger
+from ..utils.logger import get_logger, setup_comprehensive_logging, get_logging_config
 
 logger = get_logger(__name__)
 
@@ -30,13 +30,22 @@ class System:
     - Configuration loading and management
     """
     
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: Optional[str] = None, enable_logging: bool = True, verbose: bool = False):
         """
         Initialize the system.
         
         Args:
             config_path: Optional path to configuration file
+            enable_logging: Whether to enable comprehensive logging
+            verbose: Enable verbose/debug logging
         """
+        # Initialize comprehensive logging if requested
+        if enable_logging:
+            # Check if logging is already configured
+            current_config = get_logging_config()
+            if not current_config:
+                setup_comprehensive_logging(verbose=verbose)
+        
         # Core registries
         self.agents: Dict[str, Agent] = {}
         self.tools: Dict[str, Tool] = {}
@@ -57,6 +66,11 @@ class System:
         if config_path:
             self.load_config(config_path)
         
+        logger.log_system_event("system_initialized", {
+            "config_path": config_path,
+            "logging_enabled": enable_logging,
+            "verbose": verbose
+        })
         logger.info("MultiAgenticSystem initialized")
     
     def _add_builtin_tools(self) -> None:
@@ -452,3 +466,59 @@ class System:
     
     def __repr__(self) -> str:
         return f"System(agents={len(self.agents)}, tools={len(self.tools)}, tasks={len(self.tasks)})"
+    
+    # Logging and Stats Methods
+    def get_logging_info(self) -> Dict[str, Any]:
+        """Get information about current logging configuration."""
+        config = get_logging_config()
+        if not config:
+            return {"logging_enabled": False, "message": "Logging not configured"}
+        
+        return {
+            "logging_enabled": True,
+            "session_id": config.get("session_id"),
+            "log_directory": config.get("log_directory"),
+            "text_log_file": config.get("text_log_file"),
+            "json_log_file": config.get("json_log_file"),
+            "verbose": config.get("verbose", False)
+        }
+    
+    def enable_logging(self, verbose: bool = False, log_directory: Optional[str] = None) -> Dict[str, str]:
+        """Enable comprehensive logging for the system."""
+        return setup_comprehensive_logging(
+            verbose=verbose,
+            log_directory=log_directory
+        )
+    
+    def get_system_stats(self) -> Dict[str, Any]:
+        """Get comprehensive system statistics and activity."""
+        stats = {
+            "agents": {
+                "count": len(self.agents),
+                "names": list(self.agents.keys())
+            },
+            "tools": {
+                "count": len(self.tools),
+                "names": list(self.tools.keys())
+            },
+            "tasks": {
+                "count": len(self.tasks),
+                "names": list(self.tasks.keys())
+            },
+            "triggers": {
+                "count": len(self.triggers),
+                "names": list(self.triggers.keys())
+            },
+            "automations": {
+                "count": len(self.automations),
+                "names": list(self.automations.keys())
+            },
+            "system_state": {
+                "running": self.running,
+                "event_queue_size": len(self.event_queue)
+            },
+            "logging": self.get_logging_info()
+        }
+        
+        logger.log_system_event("system_stats_requested", stats)
+        return stats

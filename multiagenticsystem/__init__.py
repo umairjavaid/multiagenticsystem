@@ -44,6 +44,25 @@ except ImportError as e:
     health_check_provider = None
     create_provider_from_config = None
 
+# Logging utilities
+try:
+    from .utils.logger import (
+        setup_logging,
+        get_logger,
+        get_logs,
+        view_logs,
+        clear_logs
+    )
+    from .utils.log_viewer import LogViewer
+except ImportError as e:
+    # Logging utilities are optional but recommended
+    setup_logging = None
+    get_logger = None
+    get_logs = None
+    view_logs = None
+    clear_logs = None
+    LogViewer = None
+
 __version__ = "0.1.0"
 __author__ = "MultiAgenticSystem Team"
 __email__ = "contact@multiagenticsystem.dev"
@@ -65,7 +84,14 @@ __all__ = [
     "list_available_providers",
     "get_provider_info",
     "health_check_provider",
-    "create_provider_from_config"
+    "create_provider_from_config",
+    # Logging utilities (may be None if import fails)
+    "setup_logging",
+    "get_logger",
+    "get_logs", 
+    "view_logs",
+    "clear_logs",
+    "LogViewer"
 ]
 
 # Filter out None values from __all__

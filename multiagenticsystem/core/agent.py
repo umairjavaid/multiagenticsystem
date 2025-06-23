@@ -160,6 +160,20 @@ class Agent:
         tool_registry: Optional[Dict[str, "Tool"]] = None
     ) -> Dict[str, Any]:
         """Execute a task with tool support."""
+        import time
+        start_time = time.time()
+        
+        # Log the agent action start
+        logger.log_agent_action(
+            agent_name=self.name,
+            action="execute",
+            input_data=input_text,
+            context={
+                "available_tools": available_tools,
+                "context": context
+            }
+        )
+        
         try:
             # Add input to memory
             self.add_to_memory("user", input_text)
@@ -180,6 +194,15 @@ class Agent:
             for msg in self.memory[-10:]:
                 messages.append({"role": msg["role"], "content": msg["content"]})
             
+            # Log the LLM call details
+            logger.log_system_event("agent_llm_call", {
+                "agent": self.name,
+                "provider": self.llm_provider_name,
+                "model": self.llm_model,
+                "message_count": len(messages),
+                "context_keys": list(execution_context.keys())
+            })
+            
             # Execute with LLM provider
             response = await self.llm_provider.execute(
                 messages=messages,
@@ -187,44 +210,82 @@ class Agent:
             )
             
             # Handle tool calls if present
+            tool_results = []
             if hasattr(response, 'metadata') and 'tool_calls' in response.metadata:
                 tool_calls = response.metadata.get('tool_calls', [])
-                tool_results = []
                 
                 for tool_call in tool_calls:
                     tool_name = tool_call['name']
                     tool_args = tool_call['arguments']
                     
+                    # Log tool call
+                    logger.log_tool_execution(
+                        tool_name=tool_name,
+                        agent_name=self.name,
+                        parameters=tool_args
+                    )
+                    
                     # Execute the tool if available
                     if tool_registry and tool_name in tool_registry:
                         tool = tool_registry[tool_name]
+                        tool_start_time = time.time()
                         
-                        # Execute tool with arguments
-                        if tool_name == "Terminal":
-                            result = await tool.execute(
-                                self,
-                                command=tool_args.get('command'),
-                                working_dir=tool_args.get('working_dir')
+                        try:
+                            # Execute tool with arguments
+                            if tool_name == "Terminal":
+                                result = await tool.execute(
+                                    self,
+                                    command=tool_args.get('command'),
+                                    working_dir=tool_args.get('working_dir')
+                                )
+                            elif tool_name == "FileManager":
+                                result = await tool.execute(
+                                    self,
+                                    file_path=tool_args.get('file_path'),
+                                    content=tool_args.get('content')
+                                )
+                            else:
+                                result = await tool.execute(self, **tool_args)
+                            
+                            tool_execution_time = time.time() - tool_start_time
+                            
+                            # Log tool result
+                            logger.log_tool_execution(
+                                tool_name=tool_name,
+                                agent_name=self.name,
+                                parameters=tool_args,
+                                result=result,
+                                execution_time=tool_execution_time
                             )
-                        elif tool_name == "FileManager":
-                            result = await tool.execute(
-                                self,
-                                file_path=tool_args.get('file_path'),
-                                content=tool_args.get('content')
+                            
+                            tool_results.append({
+                                "tool": tool_name,
+                                "result": result
+                            })
+                            
+                            # Add tool result to conversation
+                            self.add_to_memory(
+                                "tool",
+                                f"Tool {tool_name} result: {result.get('result', 'completed')}"
                             )
-                        else:
-                            result = await tool.execute(self, **tool_args)
-                        
-                        tool_results.append({
+                            
+                        except Exception as tool_error:
+                            logger.log_system_event("tool_error", {
+                                "tool": tool_name,
+                                "agent": self.name,
+                                "error": str(tool_error)
+                            }, level="ERROR")
+                            
+                            tool_results.append({
+                                "tool": tool_name,
+                                "error": str(tool_error)
+                            })
+                    else:
+                        logger.log_system_event("tool_not_found", {
                             "tool": tool_name,
-                            "result": result
-                        })
-                        
-                        # Add tool result to conversation
-                        self.add_to_memory(
-                            "tool",
-                            f"Tool {tool_name} result: {result.get('result', 'completed')}"
-                        )
+                            "agent": self.name,
+                            "available_tools": list(tool_registry.keys()) if tool_registry else []
+                        }, level="WARNING")
                 
                 # If tools were called, get a final response
                 if tool_results:
@@ -255,25 +316,68 @@ class Agent:
             # Add response to memory
             self.add_to_memory("assistant", response_content)
             
-            logger.debug(f"Agent '{self.name}' executed task successfully")
+            execution_time = time.time() - start_time
             
-            return {
+            # Create result
+            result = {
                 "agent_id": self.id,
                 "agent_name": self.name,
                 "input": input_text,
                 "output": response_content,
                 "metadata": response.metadata if hasattr(response, 'metadata') else {},
+                "tool_results": tool_results,
+                "execution_time": execution_time,
                 "success": True
             }
             
+            # Log successful completion
+            logger.log_agent_action(
+                agent_name=self.name,
+                action="execute_complete",
+                input_data=input_text,
+                output_data=response_content,
+                context={
+                    "execution_time": execution_time,
+                    "tools_used": [tr["tool"] for tr in tool_results]
+                }
+            )
+            
+            logger.log_system_event("agent_execution_success", {
+                "agent": self.name,
+                "execution_time": execution_time,
+                "tools_used": len(tool_results),
+                "output_length": len(response_content)
+            })
+            
+            return result
+            
         except Exception as e:
-            logger.error(f"Agent '{self.name}' execution failed: {e}")
+            execution_time = time.time() - start_time
+            
+            # Log error
+            logger.log_agent_action(
+                agent_name=self.name,
+                action="execute_error",
+                input_data=input_text,
+                context={
+                    "error": str(e),
+                    "execution_time": execution_time
+                }
+            )
+            
+            logger.log_system_event("agent_execution_error", {
+                "agent": self.name,
+                "error": str(e),
+                "execution_time": execution_time
+            }, level="ERROR")
+            
             return {
                 "agent_id": self.id,
                 "agent_name": self.name,
                 "input": input_text,
                 "output": "",
                 "error": str(e),
+                "execution_time": execution_time,
                 "success": False
             }
     

@@ -6,13 +6,17 @@ import os
 import json
 import asyncio
 import logging
+import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union
 from enum import Enum
 from dataclasses import dataclass
 
+# Import enhanced logging
+from ..utils.logger import get_logger
+
 # Configure logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 @dataclass
 class RetryConfig:
@@ -184,6 +188,16 @@ class OpenAIProvider(LLMProvider):
         **kwargs
     ) -> LLMResponse:
         """Execute OpenAI completion."""
+        start_time = time.time()
+        
+        # Log the request
+        logger.log_llm_request(
+            provider="openai",
+            model=self.model,
+            messages=messages,
+            context=context
+        )
+        
         try:
             # Import OpenAI client
             try:
@@ -227,17 +241,37 @@ class OpenAIProvider(LLMProvider):
                 params["tools"] = context["tools"]
                 params["tool_choice"] = context.get("tool_choice", "auto")
             
+            # Log the actual API parameters (without sensitive info)
+            log_params = {k: v for k, v in params.items() if k != "api_key"}
+            logger.log_system_event("llm_api_call", {
+                "provider": "openai",
+                "model": self.model,
+                "parameters": log_params
+            })
+            
             # Make API call with specific error handling
             try:
                 response = await client.chat.completions.create(**params)
             except RateLimitError as e:
-                logger.warning(f"OpenAI rate limit hit: {e}")
+                logger.log_system_event("llm_rate_limit", {
+                    "provider": "openai",
+                    "model": self.model,
+                    "error": str(e)
+                }, level="WARNING")
                 raise
             except APITimeoutError as e:
-                logger.warning(f"OpenAI timeout: {e}")
+                logger.log_system_event("llm_timeout", {
+                    "provider": "openai", 
+                    "model": self.model,
+                    "error": str(e)
+                }, level="WARNING")
                 raise TimeoutError(f"OpenAI API timeout: {e}")
             except APIConnectionError as e:
-                logger.warning(f"OpenAI connection error: {e}")
+                logger.log_system_event("llm_connection_error", {
+                    "provider": "openai",
+                    "model": self.model, 
+                    "error": str(e)
+                }, level="WARNING")
                 raise ConnectionError(f"OpenAI connection failed: {e}")
             
             # Extract content
@@ -265,6 +299,7 @@ class OpenAIProvider(LLMProvider):
                 "model": self.model,
                 "finish_reason": finish_reason,
                 "system_fingerprint": getattr(response, "system_fingerprint", None),
+                "execution_time": time.time() - start_time
             }
             
             # Extract usage information
@@ -274,7 +309,8 @@ class OpenAIProvider(LLMProvider):
                 "total_tokens": response.usage.total_tokens,
             }
             
-            return LLMResponse(
+            # Create response object
+            llm_response = LLMResponse(
                 content=content,
                 metadata=metadata,
                 usage=usage,
@@ -282,10 +318,32 @@ class OpenAIProvider(LLMProvider):
                 tool_calls=tool_calls
             )
             
+            # Log the response
+            logger.log_llm_response(
+                provider="openai",
+                model=self.model,
+                response=content,
+                metadata=metadata,
+                usage=usage
+            )
+            
+            return llm_response
+            
         except (ImportError, ValueError) as e:
+            logger.log_system_event("llm_error", {
+                "provider": "openai",
+                "model": self.model,
+                "error_type": type(e).__name__,
+                "error": str(e)
+            }, level="ERROR")
             raise e  # Re-raise configuration errors
         except Exception as e:
-            logger.error(f"OpenAI execution failed: {e}")
+            logger.log_system_event("llm_error", {
+                "provider": "openai", 
+                "model": self.model,
+                "error_type": type(e).__name__,
+                "error": str(e)
+            }, level="ERROR")
             raise RuntimeError(f"OpenAI execution failed: {e}")
     
     def validate_config(self) -> bool:
@@ -317,6 +375,15 @@ class AnthropicProvider(LLMProvider):
         **kwargs
     ) -> LLMResponse:
         """Execute Anthropic completion."""
+        start_time = time.time()
+        
+        # Log the request
+        logger.log_llm_request(
+            provider="anthropic",
+            model=self.model,
+            messages=messages,
+            context=context
+        )
         try:
             # Import Anthropic client
             try:
@@ -438,13 +505,25 @@ class AnthropicProvider(LLMProvider):
                 "total_tokens": response.usage.input_tokens + response.usage.output_tokens,
             }
             
-            return LLMResponse(
+            # Create response object
+            llm_response = LLMResponse(
                 content=content,
                 metadata=metadata,
                 usage=usage,
                 finish_reason=response.stop_reason,
                 tool_calls=tool_calls
             )
+            
+            # Log the response
+            logger.log_llm_response(
+                provider="anthropic",
+                model=self.model,
+                response=content,
+                metadata=metadata,
+                usage=usage
+            )
+            
+            return llm_response
             
         except (ImportError, ValueError) as e:
             raise e  # Re-raise configuration errors
@@ -473,6 +552,15 @@ class AWSBedrockProvider(LLMProvider):
         **kwargs
     ) -> LLMResponse:
         """Execute AWS Bedrock completion."""
+        start_time = time.time()
+        
+        # Log the request
+        logger.log_llm_request(
+            provider="aws_bedrock",
+            model=self.model,
+            messages=messages,
+            context=context
+        )
         try:
             # Import AWS SDK
             try:
@@ -594,14 +682,27 @@ class AWSBedrockProvider(LLMProvider):
                 "provider": "aws_bedrock",
                 "model": self.model,
                 "region": self.region,
-                "response_metadata": response.get('ResponseMetadata', {})
+                "response_metadata": response.get('ResponseMetadata', {}),
+                "execution_time": time.time() - start_time
             }
             
-            return LLMResponse(
+            # Create response object
+            llm_response = LLMResponse(
                 content=content,
                 metadata=metadata,
                 usage=usage
             )
+            
+            # Log the response
+            logger.log_llm_response(
+                provider="aws_bedrock",
+                model=self.model,
+                response=content,
+                metadata=metadata,
+                usage=usage
+            )
+            
+            return llm_response
             
         except Exception as e:
             raise RuntimeError(f"AWS Bedrock execution failed: {e}")
@@ -631,6 +732,15 @@ class AzureOpenAIProvider(LLMProvider):
         **kwargs
     ) -> LLMResponse:
         """Execute Azure OpenAI completion."""
+        start_time = time.time()
+        
+        # Log the request
+        logger.log_llm_request(
+            provider="azure_openai",
+            model=self.model,
+            messages=messages,
+            context=context
+        )
         try:
             # Import Azure OpenAI client
             try:
@@ -697,11 +807,23 @@ class AzureOpenAIProvider(LLMProvider):
                 "total_tokens": response.usage.total_tokens,
             }
             
-            return LLMResponse(
+            # Create response object
+            llm_response = LLMResponse(
                 content=content,
                 metadata=metadata,
                 usage=usage
             )
+            
+            # Log the response
+            logger.log_llm_response(
+                provider="azure_openai",
+                model=self.model,
+                response=content,
+                metadata=metadata,
+                usage=usage
+            )
+            
+            return llm_response
             
         except Exception as e:
             raise RuntimeError(f"Azure OpenAI execution failed: {e}")
@@ -730,6 +852,15 @@ class TogetherProvider(LLMProvider):
         **kwargs
     ) -> LLMResponse:
         """Execute Together AI completion."""
+        start_time = time.time()
+        
+        # Log the request
+        logger.log_llm_request(
+            provider="together",
+            model=self.model,
+            messages=messages,
+            context=context
+        )
         try:
             # Import OpenAI client (Together AI uses OpenAI-compatible API)
             try:
@@ -775,11 +906,23 @@ class TogetherProvider(LLMProvider):
                 "total_tokens": response.usage.total_tokens if response.usage else 0,
             }
             
-            return LLMResponse(
+            # Create response object
+            llm_response = LLMResponse(
                 content=content,
                 metadata=metadata,
                 usage=usage
             )
+            
+            # Log the response
+            logger.log_llm_response(
+                provider="together",
+                model=self.model,
+                response=content,
+                metadata=metadata,
+                usage=usage
+            )
+            
+            return llm_response
             
         except Exception as e:
             raise RuntimeError(f"Together AI execution failed: {e}")
@@ -809,6 +952,15 @@ class OllamaProvider(LLMProvider):
         **kwargs
     ) -> LLMResponse:
         """Execute Ollama completion."""
+        start_time = time.time()
+        
+        # Log the request
+        logger.log_llm_request(
+            provider="ollama",
+            model=self.model,
+            messages=messages,
+            context=context
+        )
         try:
             # Import aiohttp for HTTP requests or use fallback
             try:
@@ -905,12 +1057,24 @@ class OllamaProvider(LLMProvider):
                 "total_tokens": result.get("prompt_eval_count", 0) + result.get("eval_count", 0),
             }
             
-            return LLMResponse(
+            # Create response object
+            llm_response = LLMResponse(
                 content=content,
                 metadata=metadata,
                 usage=usage,
                 finish_reason="stop" if result.get("done", False) else "length"
             )
+            
+            # Log the response
+            logger.log_llm_response(
+                provider="ollama",
+                model=self.model,
+                response=content,
+                metadata=metadata,
+                usage=usage
+            )
+            
+            return llm_response
             
         except Exception as e:
             logger.error(f"Ollama execution failed: {e}")
@@ -945,6 +1109,15 @@ class HuggingFaceProvider(LLMProvider):
         **kwargs
     ) -> LLMResponse:
         """Execute Hugging Face completion."""
+        start_time = time.time()
+        
+        # Log the request
+        logger.log_llm_request(
+            provider="huggingface",
+            model=self.model,
+            messages=messages,
+            context=context
+        )
         try:
             # Import aiohttp for HTTP requests or use fallback
             try:
@@ -1059,12 +1232,24 @@ class HuggingFaceProvider(LLMProvider):
                 "total_tokens": int(input_tokens + output_tokens),
             }
             
-            return LLMResponse(
+            # Create response object
+            llm_response = LLMResponse(
                 content=content,
                 metadata=metadata,
                 usage=usage,
                 finish_reason="stop"
             )
+            
+            # Log the response
+            logger.log_llm_response(
+                provider="huggingface",
+                model=self.model,
+                response=content,
+                metadata=metadata,
+                usage=usage
+            )
+            
+            return llm_response
             
         except Exception as e:
             logger.error(f"Hugging Face execution failed: {e}")
