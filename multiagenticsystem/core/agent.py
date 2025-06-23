@@ -187,9 +187,21 @@ class Agent:
                 messages=messages,
                 context=context or {}
             )
-            
+
+            # Convert LLMResponse to dict if needed
+            if hasattr(response, "content") and hasattr(response, "metadata"):
+                response_dict = {
+                    "content": response.content,
+                    "metadata": getattr(response, "metadata", {}),
+                    "usage": getattr(response, "usage", {})
+                }
+            elif isinstance(response, dict):
+                response_dict = response
+            else:
+                response_dict = {"content": str(response)}
+
             # Add response to memory
-            self.add_to_memory("assistant", response.get("content", ""))
+            self.add_to_memory("assistant", response_dict.get("content", ""))
             
             logger.debug(f"Agent '{self.name}' executed task successfully")
             
@@ -197,8 +209,8 @@ class Agent:
                 "agent_id": self.id,
                 "agent_name": self.name,
                 "input": input_text,
-                "output": response.get("content", ""),
-                "metadata": response.get("metadata", {}),
+                "output": response_dict.get("content", ""),
+                "metadata": response_dict.get("metadata", {}),
                 "success": True
             }
             

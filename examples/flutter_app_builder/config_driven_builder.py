@@ -73,7 +73,7 @@ async def main():
                     print(f"📝 Description: {app_description}")
                     
                     # Create project directory
-                    project_dir = f"./flutter_projects/{app_name}"
+                    project_dir = f"./apps/{app_name}"
                     os.makedirs(project_dir, exist_ok=True)
                     
                     # Execute tasks sequentially
@@ -112,7 +112,7 @@ async def main():
                         continue
                         
                     app_name = parts[1]
-                    project_dir = f"./flutter_projects/{app_name}"
+                    project_dir = f"./apps/{app_name}"
                     
                     if not os.path.exists(project_dir):
                         print(f"❌ App '{app_name}' not found in {project_dir}")

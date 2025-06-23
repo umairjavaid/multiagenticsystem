@@ -12,9 +12,19 @@ Both agents share access to a terminal tool for running Flutter commands.
 
 import asyncio
 import os
+import sys
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file in the root directory
+root_dir = Path(__file__).parent.parent.parent
+env_file = root_dir / ".env"
+load_dotenv(env_file)
+
+# Add the parent directory to the path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from multiagenticsystem.core.system import System
 from multiagenticsystem.core.agent import Agent
@@ -173,12 +183,26 @@ When implementing features:
 
 Always explain what you're doing and why."""
 
+    # Check which API keys are available
+    openai_key = os.getenv("OPENAI_API_KEY")
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    
+    # Use available provider, prefer OpenAI if both are available
+    if openai_key and openai_key != "your-openai-api-key-here":
+        llm_provider = "openai"
+        llm_model = "gpt-4"
+    elif anthropic_key:
+        llm_provider = "anthropic"
+        llm_model = "claude-3-5-sonnet-20241022"
+    else:
+        raise ValueError("No valid API keys found. Please set OPENAI_API_KEY or ANTHROPIC_API_KEY in the .env file.")
+
     return Agent(
         name="ImplementationAgent",
         description="Expert Flutter developer for feature implementation and app development",
         system_prompt=system_prompt,
-        llm_provider="openai",
-        llm_model="gpt-4",
+        llm_provider=llm_provider,
+        llm_model=llm_model,
         max_iterations=15,
         memory_enabled=True
     )
@@ -218,12 +242,26 @@ When testing:
 
 Always provide clear test reports and actionable feedback."""
 
+    # Check which API keys are available
+    openai_key = os.getenv("OPENAI_API_KEY")
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    
+    # Use available provider, prefer Anthropic for testing agent
+    if anthropic_key:
+        llm_provider = "anthropic"
+        llm_model = "claude-3-5-sonnet-20241022"
+    elif openai_key and openai_key != "your-openai-api-key-here":
+        llm_provider = "openai"
+        llm_model = "gpt-4"
+    else:
+        raise ValueError("No valid API keys found. Please set OPENAI_API_KEY or ANTHROPIC_API_KEY in the .env file.")
+
     return Agent(
         name="TestingAgent", 
         description="Expert Flutter testing specialist for quality assurance and validation",
         system_prompt=system_prompt,
-        llm_provider="anthropic",
-        llm_model="claude-3.5-sonnet",
+        llm_provider=llm_provider,
+        llm_model=llm_model,
         max_iterations=15,
         memory_enabled=True
     )
@@ -239,8 +277,8 @@ def create_flutter_tasks() -> List[Task]:
         steps=[
             {
                 "agent": "ImplementationAgent",
-                "action": "Create new Flutter project with proper structure",
-                "expected_output": "Initialized Flutter project with basic architecture"
+                "input": "Create new Flutter project with proper structure",
+                "context": {"expected_output": "Initialized Flutter project with basic architecture"}
             }
         ]
     )
@@ -252,11 +290,10 @@ def create_flutter_tasks() -> List[Task]:
         steps=[
             {
                 "agent": "ImplementationAgent",
-                "action": "Implement requested app features with proper Flutter patterns",
-                "expected_output": "Working Flutter app with implemented features"
+                "input": "Implement requested app features with proper Flutter patterns",
+                "context": {"expected_output": "Working Flutter app with implemented features"}
             }
-        ],
-        dependencies=["ProjectSetup"]
+        ]
     )
     
     # Task 3: Testing and Quality Assurance
@@ -266,16 +303,15 @@ def create_flutter_tasks() -> List[Task]:
         steps=[
             {
                 "agent": "TestingAgent",
-                "action": "Review implementation and create comprehensive test suite",
-                "expected_output": "Complete test suite with quality assessment"
+                "input": "Review implementation and create comprehensive test suite",
+                "context": {"expected_output": "Complete test suite with quality assessment"}
             },
             {
-                "agent": "TestingAgent", 
-                "action": "Execute tests and provide quality report",
-                "expected_output": "Test results and quality recommendations"
+                "agent": "TestingAgent",
+                "input": "Execute tests and provide quality report",
+                "context": {"expected_output": "Test results and quality recommendations"}
             }
-        ],
-        dependencies=["FeatureImplementation"]
+        ]
     )
     
     # Task 4: Final Integration and Deployment Prep
@@ -285,16 +321,15 @@ def create_flutter_tasks() -> List[Task]:
         steps=[
             {
                 "agent": "TestingAgent",
-                "action": "Run integration tests and performance validation", 
-                "expected_output": "Integration test results and performance metrics"
+                "input": "Run integration tests and performance validation",
+                "context": {"expected_output": "Integration test results and performance metrics"}
             },
             {
                 "agent": "ImplementationAgent",
-                "action": "Prepare app for deployment (build optimization, documentation)",
-                "expected_output": "Deployment-ready Flutter app with documentation"
+                "input": "Prepare app for deployment (build optimization, documentation)",
+                "context": {"expected_output": "Deployment-ready Flutter app with documentation"}
             }
-        ],
-        dependencies=["TestingAndQA"]
+        ]
     )
     
     return [setup_task, implementation_task, testing_task, integration_task]
@@ -306,14 +341,35 @@ async def main():
     print("🚀 Flutter App Builder - Multi-Agent System")
     print("=" * 50)
     
+    # Check if API keys are loaded
+    openai_key = os.getenv("OPENAI_API_KEY")
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    
+    print(f"🔑 OPENAI_API_KEY: {'✅ Set' if openai_key and openai_key != 'your-openai-api-key-here' else '❌ Missing/Invalid'}")
+    print(f"🔑 ANTHROPIC_API_KEY: {'✅ Set' if anthropic_key else '❌ Missing'}")
+    
+    if not ((openai_key and openai_key != "your-openai-api-key-here") or anthropic_key):
+        print("\n❌ No valid API keys found! Please check your .env file.")
+        print("   Make sure to set either OPENAI_API_KEY or ANTHROPIC_API_KEY with actual values.")
+        print("   Current OPENAI_API_KEY appears to be a placeholder.")
+        return
+    
     # Create the system
     system = System()
     
     # Create and register agents
-    impl_agent = create_implementation_agent()
-    test_agent = create_testing_agent()
-    
-    system.register_agents(impl_agent, test_agent)
+    try:
+        impl_agent = create_implementation_agent()
+        test_agent = create_testing_agent()
+        
+        system.register_agents(impl_agent, test_agent)
+        print(f"✅ Successfully created agents:")
+        print(f"  - ImplementationAgent using {impl_agent.llm_provider_name}/{impl_agent.llm_model}")
+        print(f"  - TestingAgent using {test_agent.llm_provider_name}/{test_agent.llm_model}")
+        
+    except Exception as e:
+        print(f"❌ Failed to create agents: {e}")
+        return
     
     # Create and register shared tools
     terminal_tool = create_terminal_tool()
