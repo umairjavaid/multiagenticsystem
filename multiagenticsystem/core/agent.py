@@ -3,8 +3,11 @@ Core agent implementation with LLM provider abstraction.
 """
 
 import uuid
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 import json
+
+if TYPE_CHECKING:
+    from .tool import Tool
 
 try:
     from pydantic import BaseModel, Field
@@ -154,7 +157,7 @@ class Agent:
         input_text: str, 
         context: Optional[Dict[str, Any]] = None,
         available_tools: Optional[List[str]] = None,
-        tool_registry: Optional[Dict[str, Tool]] = None
+        tool_registry: Optional[Dict[str, "Tool"]] = None
     ) -> Dict[str, Any]:
         """Execute a task with tool support."""
         try:
