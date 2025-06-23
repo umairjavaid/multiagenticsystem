@@ -323,8 +323,8 @@ logs/
 # Environment variables (keep this commented if you want to track .env)
 # .env
 
-# Flutter projects directory
-flutter_projects/
+# Flutter apps created by examples
+examples/flutter_app_builder/apps/*/
 
 # Cache directories
 .cache/

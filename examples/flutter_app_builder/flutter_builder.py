@@ -157,7 +157,7 @@ def create_implementation_agent() -> Agent:
     
     system_prompt = """You are a Flutter Implementation Agent, an expert Flutter developer responsible for:
 
-1. **Project Setup**: Creating new Flutter projects, configuring dependencies
+1. **Project Setup**: Creating new Flutter projects in the correct directory structure
 2. **Feature Development**: Implementing app features, UI components, business logic
 3. **Code Organization**: Structuring code with proper architecture patterns
 4. **Dependencies**: Managing pubspec.yaml and package dependencies
@@ -165,7 +165,14 @@ def create_implementation_agent() -> Agent:
 
 You have access to:
 - Terminal: For running Flutter commands (flutter create, flutter pub get, flutter build, etc.)
+  - IMPORTANT: When creating projects, always use the working_dir parameter to specify where to run commands
+  - For 'flutter create', use the apps_dir from context as the working_dir
 - FileManager: For creating and modifying Dart files, YAML configs, etc.
+
+Directory Structure Rules:
+- Flutter projects should be created in the apps directory provided in context
+- Use Terminal tool with working_dir parameter to ensure commands run in correct location
+- Never create projects in the root workspace directory
 
 Best Practices:
 - Follow Flutter/Dart conventions and best practices
@@ -437,8 +444,10 @@ async def main():
                 print(f"🏗️ Starting Flutter app build: {app_name}")
                 print(f"📝 Description: {app_description}")
                 
-                # Create project directory
-                project_dir = f"./flutter_projects/{app_name}"
+                # Create project directory in the apps folder relative to this script
+                script_dir = Path(__file__).parent
+                apps_dir = script_dir / "apps"
+                project_dir = apps_dir / app_name
                 os.makedirs(project_dir, exist_ok=True)
                 
                 # Execute the workflow
@@ -449,12 +458,14 @@ async def main():
                 setup_context = {
                     "app_name": app_name,
                     "description": app_description,
-                    "project_dir": project_dir
+                    "project_dir": str(project_dir),
+                    "apps_dir": str(apps_dir)
                 }
                 
                 setup_result = await impl_agent.execute(
                     f"Create a new Flutter project named '{app_name}' with description '{app_description}'. "
-                    f"Use the Terminal tool to run 'flutter create {app_name}' in the directory '{project_dir}'. "
+                    f"Use the Terminal tool with working_dir='{apps_dir}' to run 'flutter create {app_name}'. "
+                    f"This will create the project in the correct apps directory. "
                     f"Then set up basic project structure and update pubspec.yaml with the app description.",
                     context=setup_context,
                     available_tools=["Terminal", "FileManager"]

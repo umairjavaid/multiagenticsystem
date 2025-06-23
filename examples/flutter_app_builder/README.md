@@ -115,7 +115,7 @@ Both versions support these commands:
 ✅ Testing completed: Done
 
 🎉 Flutter app 'my_todo_app' build completed!
-📁 Project location: ./flutter_projects/my_todo_app
+📁 Project location: ./apps/my_todo_app
 ```
 
 ## 🔧 Customization
@@ -208,7 +208,7 @@ tasks:
 The system will create:
 
 ```
-flutter_projects/
+apps/
 └── [app_name]/
     ├── lib/
     │   ├── main.dart

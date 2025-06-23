@@ -109,7 +109,7 @@ fi
 
 echo ""
 echo "📁 Creating project directories..."
-mkdir -p flutter_projects
+mkdir -p examples/flutter_app_builder/apps
 mkdir -p logs
 
 echo ""

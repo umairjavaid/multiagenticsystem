@@ -72,15 +72,18 @@ async def main():
                     print(f"🏗️ Building Flutter app: {app_name}")
                     print(f"📝 Description: {app_description}")
                     
-                    # Create project directory
-                    project_dir = f"./apps/{app_name}"
+                    # Create project directory in the apps folder relative to this script
+                    script_dir = Path(__file__).parent
+                    apps_dir = script_dir / "apps"
+                    project_dir = apps_dir / app_name
                     os.makedirs(project_dir, exist_ok=True)
                     
                     # Execute tasks sequentially
                     context = {
                         "app_name": app_name,
                         "description": app_description,
-                        "project_dir": project_dir
+                        "project_dir": str(project_dir),
+                        "apps_dir": str(apps_dir)
                     }
                     
                     # Execute the project setup task

@@ -24,7 +24,7 @@ pip install -r requirements.txt
 
 # Create directories
 echo "📁 Creating project directories..."
-mkdir -p flutter_projects
+mkdir -p apps
 mkdir -p logs
 
 echo "✅ Setup complete!"
