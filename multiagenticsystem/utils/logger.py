@@ -41,7 +41,48 @@ class MultiAgenticSystemLogger:
     def __init__(self, name: str):
         self.logger = logging.getLogger(name)
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
+    
+    # Standard logging methods for compatibility
+    def info(self, message: str, extra: dict = None):
+        """Log an info message."""
+        if extra is None:
+            extra = {}
+        extra.update({
+            'mas_event_type': 'info',
+            'mas_session_id': self.session_id
+        })
+        self.logger.info(message, extra=extra)
+    
+    def debug(self, message: str, extra: dict = None):
+        """Log a debug message."""
+        if extra is None:
+            extra = {}
+        extra.update({
+            'mas_event_type': 'debug',
+            'mas_session_id': self.session_id
+        })
+        self.logger.debug(message, extra=extra)
+    
+    def warning(self, message: str, extra: dict = None):
+        """Log a warning message."""
+        if extra is None:
+            extra = {}
+        extra.update({
+            'mas_event_type': 'warning',
+            'mas_session_id': self.session_id
+        })
+        self.logger.warning(message, extra=extra)
+    
+    def error(self, message: str, extra: dict = None):
+        """Log an error message."""
+        if extra is None:
+            extra = {}
+        extra.update({
+            'mas_event_type': 'error',
+            'mas_session_id': self.session_id
+        })
+        self.logger.error(message, extra=extra)
+    
     def log_function_call(self, func_name: str, args: tuple = None, kwargs: dict = None, 
                          context: dict = None, level: str = "INFO"):
         """Log function calls with parameters."""
@@ -264,7 +305,7 @@ def setup_logging(level: str = "INFO",
                  console_output: bool = True,
                  max_file_size: str = "10MB",
                  backup_count: int = 5,
-                 include_metadata: bool = True) -> None:
+                 include_metadata: bool = True) -> Dict[str, str]:
     """
     Set up comprehensive logging for multiagenticsystem.
     
@@ -277,16 +318,30 @@ def setup_logging(level: str = "INFO",
         max_file_size: Maximum size before rotating log files
         backup_count: Number of backup files to keep
         include_metadata: Whether to include structured metadata
+        
+    Returns:
+        Dictionary with paths to log files and configuration info
     """
+    # Map the parameters to what setup_comprehensive_logging expects
+    verbose = level.upper() == "DEBUG"
+    
+    # Convert max_file_size string to bytes
+    max_log_size = 10 * 1024 * 1024  # Default 10MB
+    if max_file_size.upper().endswith("MB"):
+        max_log_size = int(max_file_size[:-2]) * 1024 * 1024
+    elif max_file_size.upper().endswith("KB"):
+        max_log_size = int(max_file_size[:-2]) * 1024
+    elif max_file_size.isdigit():
+        max_log_size = int(max_file_size)
+    
     return setup_comprehensive_logging(
-        level=level,
-        log_dir=log_dir,
-        session_id=session_id,
-        format_type=format_type,
-        console_output=console_output,
-        max_file_size=max_file_size,
+        verbose=verbose,
+        log_to_file=True,
+        log_directory=log_dir,
+        max_log_size=max_log_size,
         backup_count=backup_count,
-        include_metadata=include_metadata
+        enable_json_logs=True,
+        enable_real_time_view=False
     )
 
 

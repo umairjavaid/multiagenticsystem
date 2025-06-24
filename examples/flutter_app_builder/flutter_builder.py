@@ -14,6 +14,7 @@ import asyncio
 import os
 import sys
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
@@ -36,7 +37,7 @@ from multiagenticsystem.utils.logger import get_logger, setup_logging
 setup_logging(
     level="INFO",
     log_dir="./flutter_builder_logs",
-    session_id=f"flutter_builder_{int(asyncio.get_event_loop().time() if hasattr(asyncio, 'get_event_loop') else 0)}",
+    session_id=f"flutter_builder_{int(time.time())}",
     format_type="detailed"
 )
 
