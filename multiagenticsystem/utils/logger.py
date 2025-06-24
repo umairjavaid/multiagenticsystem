@@ -42,6 +42,11 @@ class MultiAgenticSystemLogger:
         self.logger = logging.getLogger(name)
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     
+    @property
+    def name(self) -> str:
+        """Get the logger name."""
+        return self.logger.name
+    
     # Standard logging methods for compatibility
     def info(self, message: str, extra: dict = None):
         """Log an info message."""

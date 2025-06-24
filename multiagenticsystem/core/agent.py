@@ -5,6 +5,7 @@ Core agent implementation with LLM provider abstraction.
 import uuid
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 import json
+from datetime import datetime
 
 if TYPE_CHECKING:
     from .tool import Tool
@@ -121,7 +122,7 @@ class Agent:
             "role": role,
             "content": content,
             "metadata": metadata or {},
-            "timestamp": logger.name  # Using logger.name as a placeholder
+            "timestamp": datetime.now().isoformat()
         })
     
     def clear_memory(self) -> None:
