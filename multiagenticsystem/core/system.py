@@ -301,12 +301,13 @@ class System:
             # Get available tools for this agent
             available_tools = agent.get_available_tools(self.tools)
             
-            # Execute the step
+            # Execute the step - CRITICAL FIX: Pass tool registry
             try:
                 result = await agent.execute(
                     input_text=step.input_data,
                     context=context or {},
-                    available_tools=available_tools
+                    available_tools=available_tools,
+                    tool_registry=self.tools  # CRITICAL FIX: Pass tool registry
                 )
                 
                 results.append(result)
@@ -338,7 +339,12 @@ class System:
             raise ValueError(f"Agent '{agent_name}' not found")
         
         available_tools = agent.get_available_tools(self.tools)
-        return await agent.execute(input_text, context or {}, available_tools)
+        return await agent.execute(
+            input_text, 
+            context or {}, 
+            available_tools=available_tools,
+            tool_registry=self.tools  # CRITICAL FIX: Pass tool registry
+        )
     
     # Configuration Management
     def load_config(self, config_path: str) -> None:

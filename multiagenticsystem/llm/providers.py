@@ -236,10 +236,26 @@ class OpenAIProvider(LLMProvider):
                 if value is not None:
                     params[param] = value
             
-            # Add tools if provided in context
-            if context and "tools" in context:
-                params["tools"] = context["tools"]
+            # Add tools if provided in context - CRITICAL FIX
+            if context and "tools" in context and context["tools"]:
+                # Convert tools to OpenAI function calling format
+                openai_tools = []
+                for tool in context["tools"]:
+                    openai_tool = {
+                        "type": "function",
+                        "function": {
+                            "name": tool["name"],
+                            "description": tool["description"],
+                            "parameters": tool.get("parameters", {})
+                        }
+                    }
+                    openai_tools.append(openai_tool)
+                
+                params["tools"] = openai_tools
                 params["tool_choice"] = context.get("tool_choice", "auto")
+                
+                # Log that tools are being used
+                logger.debug(f"OpenAI provider: Using {len(openai_tools)} tools for function calling")
             
             # Log the actual API parameters (without sensitive info)
             log_params = {k: v for k, v in params.items() if k != "api_key"}
@@ -456,10 +472,23 @@ class AnthropicProvider(LLMProvider):
             if system_message:
                 params["system"] = system_message
             
-            # Add tools if provided in context
-            if context and "tools" in context:
-                params["tools"] = context["tools"]
+            # Add tools if provided in context - CRITICAL FIX
+            if context and "tools" in context and context["tools"]:
+                # Convert tools to Anthropic function calling format
+                anthropic_tools = []
+                for tool in context["tools"]:
+                    anthropic_tool = {
+                        "name": tool["name"],
+                        "description": tool["description"],
+                        "input_schema": tool.get("parameters", {})
+                    }
+                    anthropic_tools.append(anthropic_tool)
+                
+                params["tools"] = anthropic_tools
                 params["tool_choice"] = context.get("tool_choice", {"type": "auto"})
+                
+                # Log that tools are being used
+                logger.debug(f"Anthropic provider: Using {len(anthropic_tools)} tools for function calling")
             
             # Make API call with specific error handling
             try:
@@ -496,6 +525,7 @@ class AnthropicProvider(LLMProvider):
                 "provider": "anthropic",
                 "model": self.model,
                 "stop_reason": response.stop_reason,
+                "tool_calls": tool_calls  # CRITICAL FIX: Include tool calls in metadata
             }
             
             # Extract usage information

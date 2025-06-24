@@ -179,8 +179,28 @@ class Agent:
             # Add input to memory
             self.add_to_memory("user", input_text)
             
-            # Prepare context with available tools
+            # Prepare context with available tools - CRITICAL FIX
             execution_context = context or {}
+            
+            # Add available tools to context for LLM function calling
+            if tool_registry and available_tools:
+                tools_schemas = []
+                for tool_name in available_tools:
+                    if tool_name in tool_registry:
+                        tool = tool_registry[tool_name]
+                        if tool.can_be_used_by(self):
+                            schema = tool.get_schema()
+                            tools_schemas.append(schema)
+                
+                if tools_schemas:
+                    execution_context["tools"] = tools_schemas
+                    execution_context["tool_choice"] = "auto"
+                    logger.debug(f"Agent {self.name}: Providing {len(tools_schemas)} tools to LLM: {[t['name'] for t in tools_schemas]}")
+                else:
+                    logger.debug(f"Agent {self.name}: No accessible tools found from available: {available_tools}")
+            else:
+                logger.debug(f"Agent {self.name}: No tools provided - tool_registry: {bool(tool_registry)}, available_tools: {available_tools}")
+                
             if available_tools:
                 execution_context["available_tools"] = available_tools
             
@@ -210,14 +230,32 @@ class Agent:
                 context=execution_context
             )
             
-            # Handle tool calls if present
+            # Handle tool calls if present - CRITICAL FIX
             tool_results = []
             if hasattr(response, 'metadata') and 'tool_calls' in response.metadata:
                 tool_calls = response.metadata.get('tool_calls', [])
                 
                 for tool_call in tool_calls:
-                    tool_name = tool_call['name']
-                    tool_args = tool_call['arguments']
+                    # Extract tool information from different provider formats
+                    if isinstance(tool_call, dict):
+                        if 'function' in tool_call:
+                            # OpenAI format
+                            tool_name = tool_call['function']['name']
+                            tool_args_str = tool_call['function']['arguments']
+                        else:
+                            # Direct format
+                            tool_name = tool_call.get('name')
+                            tool_args_str = tool_call.get('arguments', '{}')
+                    else:
+                        continue
+                    
+                    # Parse arguments
+                    try:
+                        import json
+                        tool_args = json.loads(tool_args_str) if isinstance(tool_args_str, str) else tool_args_str
+                    except (json.JSONDecodeError, TypeError):
+                        tool_args = {}
+                        logger.warning(f"Failed to parse tool arguments for {tool_name}: {tool_args_str}")
                     
                     # Log tool call
                     logger.log_tool_execution(
@@ -232,21 +270,8 @@ class Agent:
                         tool_start_time = time.time()
                         
                         try:
-                            # Execute tool with arguments
-                            if tool_name == "Terminal":
-                                result = await tool.execute(
-                                    self,
-                                    command=tool_args.get('command'),
-                                    working_dir=tool_args.get('working_dir')
-                                )
-                            elif tool_name == "FileManager":
-                                result = await tool.execute(
-                                    self,
-                                    file_path=tool_args.get('file_path'),
-                                    content=tool_args.get('content')
-                                )
-                            else:
-                                result = await tool.execute(self, **tool_args)
+                            # Execute tool with parsed arguments
+                            result = await tool.execute(self, **tool_args)
                             
                             tool_execution_time = time.time() - tool_start_time
                             
@@ -261,7 +286,8 @@ class Agent:
                             
                             tool_results.append({
                                 "tool": tool_name,
-                                "result": result
+                                "result": result,
+                                "success": True
                             })
                             
                             # Add tool result to conversation
@@ -279,7 +305,8 @@ class Agent:
                             
                             tool_results.append({
                                 "tool": tool_name,
-                                "error": str(tool_error)
+                                "error": str(tool_error),
+                                "success": False
                             })
                     else:
                         logger.log_system_event("tool_not_found", {
