@@ -3,12 +3,14 @@ Core agent implementation with LLM provider abstraction.
 """
 
 import uuid
+import time
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 import json
 from datetime import datetime
 
 if TYPE_CHECKING:
     from .tool import Tool
+    from .tool_executor import ToolExecutor
 
 try:
     from pydantic import BaseModel, Field
@@ -157,11 +159,9 @@ class Agent:
         self, 
         input_text: str, 
         context: Optional[Dict[str, Any]] = None,
-        available_tools: Optional[List[str]] = None,
-        tool_registry: Optional[Dict[str, "Tool"]] = None
+        tool_executor: Optional["ToolExecutor"] = None
     ) -> Dict[str, Any]:
-        """Execute a task with tool support."""
-        import time
+        """Execute a task with standardized tool support."""
         start_time = time.time()
         
         # Log the agent action start
@@ -169,43 +169,27 @@ class Agent:
             agent_name=self.name,
             action="execute",
             input_data=input_text,
-            context={
-                "available_tools": available_tools,
-                "context": context
-            }
+            context=context
         )
         
         try:
             # Add input to memory
             self.add_to_memory("user", input_text)
             
-            # Prepare context with available tools - CRITICAL FIX
+            # Prepare context
             execution_context = context or {}
             
-            # Add available tools to context for LLM function calling
-            if tool_registry and available_tools:
-                tools_schemas = []
-                for tool_name in available_tools:
-                    if tool_name in tool_registry:
-                        tool = tool_registry[tool_name]
-                        if tool.can_be_used_by(self):
-                            schema = tool.get_schema()
-                            tools_schemas.append(schema)
-                
-                if tools_schemas:
-                    execution_context["tools"] = tools_schemas
+            # Get available tools in standardized format
+            if tool_executor:
+                tools_schema = tool_executor.get_tools_schema_for_agent(self.name)
+                if tools_schema:
+                    execution_context["tools"] = tools_schema
+                    # Set tool choice based on provider
                     if self.llm_provider_name == "anthropic":
                         execution_context["tool_choice"] = {"type": "auto"}
                     else:
                         execution_context["tool_choice"] = "auto"
-                    logger.debug(f"Agent {self.name}: Providing {len(tools_schemas)} tools to LLM: {[t['name'] for t in tools_schemas]}")
-                else:
-                    logger.debug(f"Agent {self.name}: No accessible tools found from available: {available_tools}")
-            else:
-                logger.debug(f"Agent {self.name}: No tools provided - tool_registry: {bool(tool_registry)}, available_tools: {available_tools}")
-                
-            if available_tools:
-                execution_context["available_tools"] = available_tools
+                    logger.debug(f"Agent {self.name}: Providing {len(tools_schema)} tools to LLM")
             
             # Prepare messages for LLM
             messages = []
@@ -218,134 +202,80 @@ class Agent:
             for msg in self.memory[-10:]:
                 messages.append({"role": msg["role"], "content": msg["content"]})
             
-            # Log the LLM call details
-            logger.log_system_event("agent_llm_call", {
-                "agent": self.name,
-                "provider": self.llm_provider_name,
-                "model": self.llm_model,
-                "message_count": len(messages),
-                "context_keys": list(execution_context.keys())
-            })
+            # Start tool calling loop
+            max_iterations = 5
+            iteration = 0
+            final_response = ""
             
-            # Execute with LLM provider
-            response = await self.llm_provider.execute(
-                messages=messages,
-                context=execution_context
-            )
-            
-            # Handle tool calls if present - CRITICAL FIX
-            tool_results = []
-            if hasattr(response, 'metadata') and 'tool_calls' in response.metadata:
-                tool_calls = response.metadata.get('tool_calls', [])
+            while iteration < max_iterations:
+                iteration += 1
+                logger.debug(f"Agent {self.name}: Tool calling iteration {iteration}")
                 
-                for tool_call in tool_calls:
-                    # Extract tool information from different provider formats
-                    if isinstance(tool_call, dict):
-                        if 'function' in tool_call:
-                            # OpenAI format
-                            tool_name = tool_call['function']['name']
-                            tool_args_str = tool_call['function']['arguments']
-                        else:
-                            # Direct format
-                            tool_name = tool_call.get('name')
-                            tool_args_str = tool_call.get('arguments', '{}')
-                    else:
-                        continue
-                    
-                    # Parse arguments
-                    try:
-                        import json
-                        tool_args = json.loads(tool_args_str) if isinstance(tool_args_str, str) else tool_args_str
-                    except (json.JSONDecodeError, TypeError):
-                        tool_args = {}
-                        logger.warning(f"Failed to parse tool arguments for {tool_name}: {tool_args_str}")
-                    
-                    # Log tool call
-                    logger.log_tool_execution(
-                        tool_name=tool_name,
-                        agent_name=self.name,
-                        parameters=tool_args
-                    )
-                    
-                    # Execute the tool if available
-                    if tool_registry and tool_name in tool_registry:
-                        tool = tool_registry[tool_name]
-                        tool_start_time = time.time()
-                        
-                        try:
-                            # Execute tool with parsed arguments
-                            result = await tool.execute(self, **tool_args)
-                            
-                            tool_execution_time = time.time() - tool_start_time
-                            
-                            # Log tool result
-                            logger.log_tool_execution(
-                                tool_name=tool_name,
-                                agent_name=self.name,
-                                parameters=tool_args,
-                                result=result,
-                                execution_time=tool_execution_time
-                            )
-                            
-                            tool_results.append({
-                                "tool": tool_name,
-                                "result": result,
-                                "success": True
-                            })
-                            
-                            # Add tool result to conversation
-                            self.add_to_memory(
-                                "tool",
-                                f"Tool {tool_name} result: {result.get('result', 'completed')}"
-                            )
-                            
-                        except Exception as tool_error:
-                            logger.log_system_event("tool_error", {
-                                "tool": tool_name,
-                                "agent": self.name,
-                                "error": str(tool_error)
-                            }, level="ERROR")
-                            
-                            tool_results.append({
-                                "tool": tool_name,
-                                "error": str(tool_error),
-                                "success": False
-                            })
-                    else:
-                        logger.log_system_event("tool_not_found", {
-                            "tool": tool_name,
-                            "agent": self.name,
-                            "available_tools": list(tool_registry.keys()) if tool_registry else []
-                        }, level="WARNING")
+                # Execute with LLM provider
+                response = await self.llm_provider.execute(
+                    messages=messages,
+                    context=execution_context
+                )
                 
-                # If tools were called, get a final response
-                if tool_results:
-                    # Add tool results to messages
+                # Check if LLM wants to use tools
+                tool_calls = []
+                if hasattr(self.llm_provider, 'extract_tool_calls'):
+                    tool_calls = self.llm_provider.extract_tool_calls(response)
+                
+                if not tool_calls:
+                    # No tool calls, we're done
+                    final_response = response.content
+                    break
+                
+                # Execute tool calls using standardized executor
+                if tool_executor:
+                    logger.debug(f"Agent {self.name}: Executing {len(tool_calls)} tool calls")
+                    
+                    # Execute all tool calls
+                    tool_responses = await tool_executor.execute_tool_calls(tool_calls, self.name)
+                    
+                    # Add assistant message with tool calls to conversation
                     messages.append({
                         "role": "assistant",
-                        "content": response.content
+                        "content": response.content,
+                        "tool_calls": [
+                            {
+                                "id": tc.id,
+                                "type": "function",
+                                "function": {
+                                    "name": tc.name,
+                                    "arguments": json.dumps(tc.arguments)
+                                }
+                            } for tc in tool_calls
+                        ]
                     })
                     
-                    for tool_result in tool_results:
-                        messages.append({
-                            "role": "tool",
-                            "content": json.dumps(tool_result)
-                        })
+                    # Add tool responses to conversation
+                    if hasattr(self.llm_provider, 'create_tool_response_for_llm'):
+                        tool_messages = self.llm_provider.create_tool_response_for_llm(tool_responses)
+                        if isinstance(tool_messages, list):
+                            messages.extend(tool_messages)
+                        else:
+                            messages.append(tool_messages)
                     
-                    # Get final response after tool execution
-                    final_response = await self.llm_provider.execute(
-                        messages=messages,
-                        context=execution_context
-                    )
-                    
-                    response_content = final_response.content
+                    # Log tool usage
+                    for tool_response in tool_responses:
+                        if tool_response.success:
+                            logger.info(f"Tool '{tool_response.name}' executed successfully")
+                        else:
+                            logger.warning(f"Tool '{tool_response.name}' failed: {tool_response.error}")
                 else:
-                    response_content = response.content
-            else:
-                response_content = response.content
+                    # No tool executor available, cannot execute tools
+                    final_response = response.content
+                    break
             
-            # Add response to memory
-            self.add_to_memory("assistant", response_content)
+            # If we ran out of iterations, use the last response
+            if iteration >= max_iterations and not final_response:
+                final_response = "Maximum tool calling iterations reached."
+                logger.warning(f"Agent {self.name}: Reached maximum tool calling iterations")
+            
+            # Add final response to memory
+            self.add_to_memory("assistant", final_response)
             
             execution_time = time.time() - start_time
             
@@ -354,38 +284,28 @@ class Agent:
                 "agent_id": self.id,
                 "agent_name": self.name,
                 "input": input_text,
-                "output": response_content,
-                "metadata": response.metadata if hasattr(response, 'metadata') else {},
-                "tool_results": tool_results,
+                "output": final_response,
+                "tool_calls_made": iteration - 1,
                 "execution_time": execution_time,
                 "success": True
             }
             
-            # Log successful completion
             logger.log_agent_action(
                 agent_name=self.name,
                 action="execute_complete",
                 input_data=input_text,
-                output_data=response_content,
+                output_data=final_response,
                 context={
                     "execution_time": execution_time,
-                    "tools_used": [tr["tool"] for tr in tool_results]
+                    "tool_iterations": iteration - 1
                 }
             )
-            
-            logger.log_system_event("agent_execution_success", {
-                "agent": self.name,
-                "execution_time": execution_time,
-                "tools_used": len(tool_results),
-                "output_length": len(response_content)
-            })
             
             return result
             
         except Exception as e:
             execution_time = time.time() - start_time
             
-            # Log error
             logger.log_agent_action(
                 agent_name=self.name,
                 action="execute_error",
@@ -395,12 +315,6 @@ class Agent:
                     "execution_time": execution_time
                 }
             )
-            
-            logger.log_system_event("agent_execution_error", {
-                "agent": self.name,
-                "error": str(e),
-                "execution_time": execution_time
-            }, level="ERROR")
             
             return {
                 "agent_id": self.id,

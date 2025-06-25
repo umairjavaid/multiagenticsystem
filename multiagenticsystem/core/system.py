@@ -13,6 +13,8 @@ from .tool import Tool, create_logger_tool, create_memory_tool
 from .task import Task, Collaboration
 from .trigger import Trigger
 from .automation import Automation
+from .base_tool import BaseTool, FunctionTool, ToolScope
+from .tool_executor import ToolExecutor
 from ..utils.logger import get_logger, setup_comprehensive_logging, get_logging_config
 
 logger = get_logger(__name__)
@@ -54,6 +56,9 @@ class System:
         self.automations: Dict[str, Automation] = {}
         self.collaborations: Dict[str, Collaboration] = {}
         
+        # Initialize new standardized tool executor
+        self.tool_executor = ToolExecutor()
+        
         # Runtime state
         self.running = False
         self.event_queue: List[Dict[str, Any]] = []
@@ -75,13 +80,43 @@ class System:
     
     def _add_builtin_tools(self) -> None:
         """Add built-in utility tools to the system."""
+        # Add legacy tools for backwards compatibility
         logger_tool = create_logger_tool()
         memory_tool = create_memory_tool()
         
         self.tools[logger_tool.name] = logger_tool
         self.tools[memory_tool.name] = memory_tool
         
-        logger.debug("Added built-in tools: Logger, StoreMemory")
+        # Add standardized built-in tools
+        def log_message(message: str, level: str = "info") -> str:
+            logger_func = getattr(logger, level.lower(), logger.info)
+            logger_func(f"AGENT LOG: {message}")
+            return f"Logged: {message}"
+        
+        logger_std_tool = FunctionTool(
+            func=log_message,
+            name="Logger",
+            description="Log messages for debugging and tracking"
+        )
+        logger_std_tool.set_global()
+        self.register_tool(logger_std_tool)
+        
+        # Memory tool
+        memory_store = {}
+        
+        def store_memory(key: str, value: str) -> str:
+            memory_store[key] = value
+            return f"Stored '{key}': {value}"
+        
+        memory_std_tool = FunctionTool(
+            func=store_memory,
+            name="StoreMemory", 
+            description="Store information in memory"
+        )
+        memory_std_tool.set_global()
+        self.register_tool(memory_std_tool)
+        
+        logger.debug("Added built-in tools: Logger, StoreMemory (legacy and standardized)")
     
     # Agent Management
     def register_agent(self, agent: Agent) -> None:
@@ -112,14 +147,21 @@ class System:
         return False
     
     # Tool Management
-    def register_tool(self, tool: Tool) -> None:
-        """Register a single tool."""
-        self.tools[tool.name] = tool
-        self._update_all_agent_tools()
-        logger.info(f"Registered tool: {tool.name} (scope: {tool.scope.value})")
+    def register_tool(self, tool: Union[Tool, BaseTool]) -> None:
+        """Register a single tool (legacy or standardized)."""
+        # Register with legacy system for backwards compatibility
+        if isinstance(tool, Tool):
+            self.tools[tool.name] = tool
+            self._update_all_agent_tools()
+        
+        # Register with new standardized system
+        if isinstance(tool, BaseTool):
+            self.tool_executor.register_tool(tool)
+        
+        logger.info(f"Registered tool: {tool.name}")
     
-    def register_tools(self, *tools: Tool) -> None:
-        """Register multiple tools."""
+    def register_tools(self, *tools: Union[Tool, BaseTool]) -> None:
+        """Register multiple tools (legacy or standardized)."""
         for tool in tools:
             self.register_tool(tool)
     
@@ -333,17 +375,15 @@ class System:
         input_text: str,
         context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """Execute a single agent."""
+        """Execute a single agent with standardized tool support."""
         agent = self.get_agent(agent_name)
         if not agent:
             raise ValueError(f"Agent '{agent_name}' not found")
         
-        available_tools = agent.get_available_tools(self.tools)
         return await agent.execute(
             input_text, 
             context or {}, 
-            available_tools=available_tools,
-            tool_registry=self.tools  # CRITICAL FIX: Pass tool registry
+            tool_executor=self.tool_executor  # Pass the standardized tool executor
         )
     
     # Configuration Management

@@ -14,6 +14,10 @@ from dataclasses import dataclass
 
 # Import enhanced logging
 from ..utils.logger import get_logger
+# Import standardized tool calling mixin
+from .tool_calling_mixin import StandardizedToolCallingMixin
+# Import tool calling components for type hints
+from ..core.base_tool import ToolCallRequest, ToolCallResponse
 
 # Configure logging
 logger = get_logger(__name__)
@@ -160,7 +164,7 @@ class LLMProvider(ABC):
         return {k: v for k, v in kwargs.items() if k in supported}
 
 
-class OpenAIProvider(LLMProvider):
+class OpenAIProvider(LLMProvider, StandardizedToolCallingMixin):
     """OpenAI LLM provider."""
     
     def __init__(self, model: str = "gpt-3.5-turbo", **kwargs):
@@ -236,26 +240,12 @@ class OpenAIProvider(LLMProvider):
                 if value is not None:
                     params[param] = value
             
-            # Add tools if provided in context - CRITICAL FIX
-            if context and "tools" in context and context["tools"]:
-                # Convert tools to OpenAI function calling format
-                openai_tools = []
-                for tool in context["tools"]:
-                    openai_tool = {
-                        "type": "function",
-                        "function": {
-                            "name": tool["name"],
-                            "description": tool["description"],
-                            "parameters": tool.get("parameters", {})
-                        }
-                    }
-                    openai_tools.append(openai_tool)
-                
-                params["tools"] = openai_tools
-                params["tool_choice"] = context.get("tool_choice", "auto")
-                
-                # Log that tools are being used
-                logger.debug(f"OpenAI provider: Using {len(openai_tools)} tools for function calling")
+            # Add tools if provided - STANDARDIZED WAY
+            if context and "tools" in context:
+                tools = self.prepare_tools_for_llm(context["tools"])
+                if tools:
+                    params["tools"] = tools
+                    params["tool_choice"] = context.get("tool_choice", "auto")
             
             # Log the actual API parameters (without sensitive info)
             log_params = {k: v for k, v in params.items() if k != "api_key"}
@@ -290,24 +280,13 @@ class OpenAIProvider(LLMProvider):
                 }, level="WARNING")
                 raise ConnectionError(f"OpenAI connection failed: {e}")
             
-            # Extract content
+            # Extract content and tool calls - STANDARDIZED WAY
             content = response.choices[0].message.content or ""
             finish_reason = response.choices[0].finish_reason
+            tool_calls_requests = self.extract_tool_calls(response)
             
-            # Extract tool calls
-            tool_calls = []
-            if response.choices[0].message.tool_calls:
-                tool_calls = [
-                    {
-                        "id": tool_call.id,
-                        "type": tool_call.type,
-                        "function": {
-                            "name": tool_call.function.name,
-                            "arguments": tool_call.function.arguments
-                        }
-                    }
-                    for tool_call in response.choices[0].message.tool_calls
-                ]
+            # Convert to legacy format for compatibility
+            tool_calls = [{"id": tc.id, "name": tc.name, "arguments": tc.arguments} for tc in tool_calls_requests]
             
             # Build metadata
             metadata = {
@@ -362,12 +341,56 @@ class OpenAIProvider(LLMProvider):
             }, level="ERROR")
             raise RuntimeError(f"OpenAI execution failed: {e}")
     
+    # Standardized tool calling methods
+    def _convert_tools_to_provider_format(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Convert standardized tools to OpenAI format."""
+        return tools  # OpenAI format is our standard format
+    
+    def _extract_tool_calls_from_response(self, response: Any) -> List[ToolCallRequest]:
+        """Extract tool calls from OpenAI response."""
+        tool_calls = []
+        
+        if hasattr(response, 'choices') and response.choices:
+            choice = response.choices[0]
+            if hasattr(choice.message, 'tool_calls') and choice.message.tool_calls:
+                for tool_call in choice.message.tool_calls:
+                    try:
+                        arguments = json.loads(tool_call.function.arguments)
+                    except (json.JSONDecodeError, TypeError):
+                        arguments = {}
+                        logger.warning(f"Failed to parse tool arguments: {tool_call.function.arguments}")
+                    
+                    tool_calls.append(ToolCallRequest(
+                        id=tool_call.id,
+                        name=tool_call.function.name,
+                        arguments=arguments
+                    ))
+        
+        return tool_calls
+    
+    def _create_tool_response_message(self, tool_responses: List[ToolCallResponse]) -> List[Dict[str, Any]]:
+        """Create OpenAI tool response messages."""
+        messages = []
+        for response in tool_responses:
+            messages.append({
+                "tool_call_id": response.id,
+                "role": "tool",
+                "name": response.name,
+                "content": json.dumps({
+                    "result": response.result,
+                    "success": response.success,
+                    "error": response.error,
+                    "metadata": response.metadata
+                })
+            })
+        return messages
+    
     def validate_config(self) -> bool:
         """Validate OpenAI configuration."""
         return bool(self.api_key and self.model)
 
 
-class AnthropicProvider(LLMProvider):
+class AnthropicProvider(LLMProvider, StandardizedToolCallingMixin):
     """Anthropic Claude LLM provider."""
     
     def __init__(self, model: str = "claude-3-5-sonnet-20241022", **kwargs):
@@ -472,31 +495,19 @@ class AnthropicProvider(LLMProvider):
             if system_message:
                 params["system"] = system_message
             
-            # Add tools if provided in context - CRITICAL FIX
-            if context and "tools" in context and context["tools"]:
-                # Convert tools to Anthropic function calling format
-                anthropic_tools = []
-                for tool in context["tools"]:
-                    anthropic_tool = {
-                        "name": tool["name"],
-                        "description": tool["description"],
-                        "input_schema": tool.get("parameters", {})
-                    }
-                    anthropic_tools.append(anthropic_tool)
-                
-                params["tools"] = anthropic_tools
-                
-                # CRITICAL FIX: Ensure tool_choice is a dictionary for Anthropic
-                tool_choice = context.get("tool_choice")
-                if isinstance(tool_choice, str):
-                    params["tool_choice"] = {"type": "auto"}
-                elif tool_choice is None:
-                    params["tool_choice"] = {"type": "auto"}
-                else:
-                    params["tool_choice"] = tool_choice
-                
-                # Log that tools are being used
-                logger.debug(f"Anthropic provider: Using {len(anthropic_tools)} tools for function calling")
+            # Add tools if provided - STANDARDIZED WAY
+            if context and "tools" in context:
+                tools = self.prepare_tools_for_llm(context["tools"])
+                if tools:
+                    params["tools"] = tools
+                    # CRITICAL FIX: Ensure tool_choice is a dictionary for Anthropic
+                    tool_choice = context.get("tool_choice")
+                    if isinstance(tool_choice, str):
+                        params["tool_choice"] = {"type": "auto"}
+                    elif tool_choice is None:
+                        params["tool_choice"] = {"type": "auto"}
+                    else:
+                        params["tool_choice"] = tool_choice
             
             # Make API call with specific error handling
             try:
@@ -511,22 +522,15 @@ class AnthropicProvider(LLMProvider):
                 logger.warning(f"Anthropic connection error: {e}")
                 raise ConnectionError(f"Anthropic connection failed: {e}")
             
-            # Extract content and tool calls
+            # Extract content and tool calls - STANDARDIZED WAY
             content = ""
-            tool_calls = []
-            
             for block in response.content:
                 if block.type == "text":
                     content += block.text
-                elif block.type == "tool_use":
-                    tool_calls.append({
-                        "id": block.id,
-                        "type": "function",
-                        "function": {
-                            "name": block.name,
-                            "arguments": json.dumps(block.input) if isinstance(block.input, dict) else str(block.input)
-                        }
-                    })
+            
+            tool_calls_requests = self.extract_tool_calls(response)
+            # Convert to legacy format for compatibility
+            tool_calls = [{"id": tc.id, "name": tc.name, "arguments": tc.arguments} for tc in tool_calls_requests]
             
             # Build metadata
             metadata = {
@@ -568,6 +572,55 @@ class AnthropicProvider(LLMProvider):
         except Exception as e:
             logger.error(f"Anthropic execution failed: {e}")
             raise RuntimeError(f"Anthropic execution failed: {e}")
+    
+    # Standardized tool calling methods
+    def _convert_tools_to_provider_format(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Convert standardized tools to Anthropic format."""
+        anthropic_tools = []
+        for tool in tools:
+            if tool.get("type") == "function":
+                func = tool["function"]
+                anthropic_tools.append({
+                    "name": func["name"],
+                    "description": func["description"],
+                    "input_schema": func["parameters"]
+                })
+        return anthropic_tools
+    
+    def _extract_tool_calls_from_response(self, response: Any) -> List[ToolCallRequest]:
+        """Extract tool calls from Anthropic response."""
+        tool_calls = []
+        
+        if hasattr(response, 'content'):
+            for block in response.content:
+                if getattr(block, 'type', None) == "tool_use":
+                    tool_calls.append(ToolCallRequest(
+                        id=block.id,
+                        name=block.name,
+                        arguments=block.input if isinstance(block.input, dict) else {}
+                    ))
+        
+        return tool_calls
+    
+    def _create_tool_response_message(self, tool_responses: List[ToolCallResponse]) -> List[Dict[str, Any]]:
+        """Create Anthropic tool response messages."""
+        messages = []
+        for response in tool_responses:
+            messages.append({
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": response.id,
+                        "content": json.dumps({
+                            "result": response.result,
+                            "success": response.success,
+                            "error": response.error
+                        })
+                    }
+                ]
+            })
+        return messages
     
     def validate_config(self) -> bool:
         """Validate Anthropic configuration."""
