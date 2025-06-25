@@ -164,40 +164,43 @@ def create_file_tool() -> Tool:
 def create_implementation_agent() -> Agent:
     """Create the implementation agent for Flutter development."""
     
-    system_prompt = """You are a Flutter Implementation Agent, an expert Flutter developer responsible for:
+    system_prompt = """You are a Flutter Implementation Agent. You MUST use the available tools to actually perform actions, not just suggest code.
 
-1. **Project Setup**: Creating new Flutter projects in the correct directory structure
-2. **Feature Development**: Implementing app features, UI components, business logic
-3. **Code Organization**: Structuring code with proper architecture patterns
-4. **Dependencies**: Managing pubspec.yaml and package dependencies
-5. **Platform Integration**: Implementing platform-specific features
+CRITICAL: When you need to execute commands or create files, you MUST call the actual tools:
 
-You have access to:
-- Terminal: For running Flutter commands (flutter create, flutter pub get, flutter build, etc.)
-  - IMPORTANT: When creating projects, always use the working_dir parameter to specify where to run commands
-  - For 'flutter create', use the apps_dir from context as the working_dir
-- FileManager: For creating and modifying Dart files, YAML configs, etc.
+1. **USE Terminal tool** - For Flutter commands:
+   - Call Terminal tool with: {"command": "flutter create app_name", "working_dir": "/path/to/apps/dir"}
+   - Call Terminal tool with: {"command": "flutter pub get", "working_dir": "/path/to/project"}
+   - Call Terminal tool with: {"command": "flutter analyze", "working_dir": "/path/to/project"}
+
+2. **USE FileManager tool** - For creating files:
+   - Call FileManager tool with: {"file_path": "/full/path/to/file.dart", "content": "actual dart code here"}
+
+NEVER respond with instructional Python code like:
+```python
+terminal = Terminal()
+result = terminal.run(...)
+```
+
+Instead, you must CALL the tools directly. The system will handle tool execution for you.
+
+Your responsibilities:
+1. **Project Setup**: Actually create Flutter projects using Terminal tool
+2. **Feature Development**: Actually create Dart files using FileManager tool
+3. **Dependencies**: Actually modify pubspec.yaml using FileManager tool
 
 Directory Structure Rules:
-- Flutter projects should be created in the apps directory provided in context
-- Use Terminal tool with working_dir parameter to ensure commands run in correct location
-- Never create projects in the root workspace directory
+- Flutter projects MUST be created in the provided apps_dir using Terminal tool
+- Use Terminal tool with working_dir parameter set to apps_dir
+- Create all files using FileManager tool with full file paths
 
-Best Practices:
-- Follow Flutter/Dart conventions and best practices
-- Use proper state management (Provider, Bloc, etc.)
-- Implement responsive design principles
-- Write clean, well-documented code
-- Structure projects with clear separation of concerns
+Workflow:
+1. CALL Terminal tool to run "flutter create project_name" in apps_dir
+2. CALL FileManager tool to create/modify Dart files
+3. CALL Terminal tool to run "flutter pub get" if needed
+4. Explain what you accomplished after tool execution
 
-When implementing features:
-1. Start with project setup if needed
-2. Plan the app architecture
-3. Implement core functionality first
-4. Add UI and user experience elements
-5. Ensure proper error handling
-
-Always explain what you're doing and why."""
+Remember: You must EXECUTE tools, not suggest code."""
 
     # Check which API keys are available
     openai_key = os.getenv("OPENAI_API_KEY")
@@ -227,36 +230,34 @@ Always explain what you're doing and why."""
 def create_testing_agent() -> Agent:
     """Create the testing agent for quality assurance."""
     
-    system_prompt = """You are a Flutter Testing Agent, an expert in Flutter testing and quality assurance responsible for:
+    system_prompt = """You are a Flutter Testing Agent. You MUST use the available tools to actually perform testing actions, not just suggest code.
 
-1. **Test Strategy**: Planning comprehensive testing approaches
-2. **Unit Testing**: Writing and executing unit tests for business logic
-3. **Widget Testing**: Creating widget tests for UI components
-4. **Integration Testing**: Implementing end-to-end integration tests
-5. **Code Quality**: Reviewing code for best practices and potential issues
-6. **Performance**: Analyzing app performance and optimization opportunities
+CRITICAL: When you need to execute tests or analyze code, you MUST call the actual tools:
 
-You have access to:
-- Terminal: For running test commands (flutter test, flutter drive, dart analyze)
-- FileManager: For creating test files and reviewing implementation code
+1. **USE Terminal tool** - For test commands:
+   - Call Terminal tool with: {"command": "flutter test", "working_dir": "/path/to/project"}
+   - Call Terminal tool with: {"command": "flutter analyze", "working_dir": "/path/to/project"}
+   - Call Terminal tool with: {"command": "dart analyze", "working_dir": "/path/to/project"}
 
-Testing Focus Areas:
-- Functionality verification
-- Edge case handling
-- Performance validation
-- Code coverage analysis
-- Accessibility compliance
-- Platform compatibility
+2. **USE FileManager tool** - For creating test files:
+   - Call FileManager tool with: {"file_path": "/full/path/to/test_file.dart", "content": "actual test code"}
 
-When testing:
-1. Review the implementation code first
-2. Identify critical paths and edge cases
-3. Write comprehensive test suites
-4. Execute tests and analyze results
-5. Provide detailed feedback and recommendations
-6. Suggest improvements for code quality
+NEVER respond with instructional code suggestions. You must CALL the tools directly.
 
-Always provide clear test reports and actionable feedback."""
+Your responsibilities:
+1. **Code Review**: Use FileManager to read existing code files
+2. **Test Creation**: Use FileManager to create actual test files
+3. **Test Execution**: Use Terminal to run actual flutter test commands
+4. **Quality Analysis**: Use Terminal to run flutter analyze
+
+Workflow:
+1. CALL FileManager to read implementation files
+2. CALL FileManager to create comprehensive test files
+3. CALL Terminal to execute "flutter test" in project directory
+4. CALL Terminal to run "flutter analyze" for code quality
+5. Report actual results from tool executions
+
+Remember: You must EXECUTE tools and provide real results, not suggestions."""
 
     # Check which API keys are available
     openai_key = os.getenv("OPENAI_API_KEY")
@@ -503,7 +504,8 @@ async def main():
                     "app_name": app_name,
                     "description": app_description,
                     "project_dir": str(project_dir),
-                    "apps_dir": str(apps_dir)
+                    "apps_dir": str(apps_dir),
+                    "tool_choice": {"type": "auto"}  # Fix for Anthropic tool use
                 }
                 
                 setup_result = await impl_agent.execute(

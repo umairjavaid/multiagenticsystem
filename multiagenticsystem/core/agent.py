@@ -194,7 +194,10 @@ class Agent:
                 
                 if tools_schemas:
                     execution_context["tools"] = tools_schemas
-                    execution_context["tool_choice"] = "auto"
+                    if self.llm_provider_name == "anthropic":
+                        execution_context["tool_choice"] = {"type": "auto"}
+                    else:
+                        execution_context["tool_choice"] = "auto"
                     logger.debug(f"Agent {self.name}: Providing {len(tools_schemas)} tools to LLM: {[t['name'] for t in tools_schemas]}")
                 else:
                     logger.debug(f"Agent {self.name}: No accessible tools found from available: {available_tools}")

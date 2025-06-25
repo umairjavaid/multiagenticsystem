@@ -485,7 +485,15 @@ class AnthropicProvider(LLMProvider):
                     anthropic_tools.append(anthropic_tool)
                 
                 params["tools"] = anthropic_tools
-                params["tool_choice"] = context.get("tool_choice", {"type": "auto"})
+                
+                # CRITICAL FIX: Ensure tool_choice is a dictionary for Anthropic
+                tool_choice = context.get("tool_choice")
+                if isinstance(tool_choice, str):
+                    params["tool_choice"] = {"type": "auto"}
+                elif tool_choice is None:
+                    params["tool_choice"] = {"type": "auto"}
+                else:
+                    params["tool_choice"] = tool_choice
                 
                 # Log that tools are being used
                 logger.debug(f"Anthropic provider: Using {len(anthropic_tools)} tools for function calling")
