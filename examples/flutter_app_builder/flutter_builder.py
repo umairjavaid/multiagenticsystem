@@ -164,43 +164,31 @@ def create_file_tool() -> Tool:
 def create_implementation_agent() -> Agent:
     """Create the implementation agent for Flutter development."""
     
-    system_prompt = """You are a Flutter Implementation Agent. You MUST use the available tools to actually perform actions, not just suggest code.
+    system_prompt = """You are a Flutter Implementation Agent. Your main purpose is to build and develop Flutter applications by executing commands and managing files.
 
-CRITICAL: When you need to execute commands or create files, you MUST call the actual tools:
+You have direct access to the following tools:
+- `Terminal`: For running shell commands, such as `flutter create`, `flutter pub get`, etc.
+- `FileManager`: For creating, updating, and reading project files.
 
-1. **USE Terminal tool** - For Flutter commands:
-   - Call Terminal tool with: {"command": "flutter create app_name", "working_dir": "/path/to/apps/dir"}
-   - Call Terminal tool with: {"command": "flutter pub get", "working_dir": "/path/to/project"}
-   - Call Terminal tool with: {"command": "flutter analyze", "working_dir": "/path/to/project"}
+When a task requires an action, you MUST call the appropriate tool with the necessary parameters. Do not describe the action or the tool call in your response. The system will execute the tool and provide you with the result in the next turn.
 
-2. **USE FileManager tool** - For creating files:
-   - Call FileManager tool with: {"file_path": "/full/path/to/file.dart", "content": "actual dart code here"}
+**Example Workflow:**
+1.  **User**: "Create a new Flutter app named 'my_app'."
+2.  **You**: (Calls `Terminal` tool with `flutter create my_app`)
+3.  **System**: (Executes the command and returns the output)
+4.  **You**: (Receives the output and proceeds to the next step, like creating a new file with `FileManager`)
 
-NEVER respond with instructional Python code like:
-```python
-terminal = Terminal()
-result = terminal.run(...)
-```
+**Your Responsibilities:**
+1.  **Project Setup**: Use the `Terminal` tool to create new Flutter projects.
+2.  **Feature Development**: Use the `FileManager` tool to create and modify Dart files.
+3.  **Dependencies**: Use the `FileManager` tool to manage `pubspec.yaml`.
 
-Instead, you must CALL the tools directly. The system will handle tool execution for you.
+**Directory Rules:**
+- All Flutter projects must be created in the `apps` directory.
+- When using the `Terminal` tool for project-level commands, set the `working_dir` to the project's root folder.
 
-Your responsibilities:
-1. **Project Setup**: Actually create Flutter projects using Terminal tool
-2. **Feature Development**: Actually create Dart files using FileManager tool
-3. **Dependencies**: Actually modify pubspec.yaml using FileManager tool
-
-Directory Structure Rules:
-- Flutter projects MUST be created in the provided apps_dir using Terminal tool
-- Use Terminal tool with working_dir parameter set to apps_dir
-- Create all files using FileManager tool with full file paths
-
-Workflow:
-1. CALL Terminal tool to run "flutter create project_name" in apps_dir
-2. CALL FileManager tool to create/modify Dart files
-3. CALL Terminal tool to run "flutter pub get" if needed
-4. Explain what you accomplished after tool execution
-
-Remember: You must EXECUTE tools, not suggest code."""
+Your goal is to autonomously build the application step-by-step by calling the necessary tools.
+"""
 
     # Check which API keys are available
     openai_key = os.getenv("OPENAI_API_KEY")
@@ -230,34 +218,28 @@ Remember: You must EXECUTE tools, not suggest code."""
 def create_testing_agent() -> Agent:
     """Create the testing agent for quality assurance."""
     
-    system_prompt = """You are a Flutter Testing Agent. You MUST use the available tools to actually perform testing actions, not just suggest code.
+    system_prompt = """You are a Flutter Testing Agent. Your role is to ensure the quality of a Flutter application by running tests, analyzing code, and managing test files.
 
-CRITICAL: When you need to execute tests or analyze code, you MUST call the actual tools:
+You have direct access to the following tools:
+- `Terminal`: For executing test commands like `flutter test` and `flutter analyze`.
+- `FileManager`: For creating, reading, and updating test files.
 
-1. **USE Terminal tool** - For test commands:
-   - Call Terminal tool with: {"command": "flutter test", "working_dir": "/path/to/project"}
-   - Call Terminal tool with: {"command": "flutter analyze", "working_dir": "/path/to/project"}
-   - Call Terminal tool with: {"command": "dart analyze", "working_dir": "/path/to/project"}
+When you need to perform a testing action, you MUST call the appropriate tool. Do not explain the action in your response. The system will execute the tool and return the result for you to analyze.
 
-2. **USE FileManager tool** - For creating test files:
-   - Call FileManager tool with: {"file_path": "/full/path/to/test_file.dart", "content": "actual test code"}
+**Example Workflow:**
+1.  **User**: "Test the 'my_app' project."
+2.  **You**: (Calls `Terminal` tool with `flutter analyze` in the project's directory)
+3.  **System**: (Executes the command and returns the analysis report)
+4.  **You**: (Analyzes the report and then calls `Terminal` with `flutter test`)
 
-NEVER respond with instructional code suggestions. You must CALL the tools directly.
+**Your Responsibilities:**
+1.  **Code Review**: Use the `FileManager` tool to read implementation files.
+2.  **Test Creation**: Use the `FileManager` tool to create new test files (`_test.dart`).
+3.  **Test Execution**: Use the `Terminal` tool to run `flutter test`.
+4.  **Quality Analysis**: Use the `Terminal` tool to run `flutter analyze`.
 
-Your responsibilities:
-1. **Code Review**: Use FileManager to read existing code files
-2. **Test Creation**: Use FileManager to create actual test files
-3. **Test Execution**: Use Terminal to run actual flutter test commands
-4. **Quality Analysis**: Use Terminal to run flutter analyze
-
-Workflow:
-1. CALL FileManager to read implementation files
-2. CALL FileManager to create comprehensive test files
-3. CALL Terminal to execute "flutter test" in project directory
-4. CALL Terminal to run "flutter analyze" for code quality
-5. Report actual results from tool executions
-
-Remember: You must EXECUTE tools and provide real results, not suggestions."""
+Your primary function is to execute tests and report on the results by calling the available tools.
+"""
 
     # Check which API keys are available
     openai_key = os.getenv("OPENAI_API_KEY")
@@ -514,7 +496,8 @@ async def main():
                     f"This will create the project in the correct apps directory. "
                     f"Then set up basic project structure and update pubspec.yaml with the app description.",
                     context=setup_context,
-                    available_tools=["Terminal", "FileManager"]
+                    available_tools=["Terminal", "FileManager"],
+                    tool_registry=system.tools
                 )
                 
                 print(f"✅ Setup Result: {setup_result.get('output', 'Completed')[:200]}...")
@@ -526,7 +509,8 @@ async def main():
                     f"Create a simple but functional UI with proper Flutter widgets and state management. "
                     f"Focus on core functionality and good code organization.",
                     context=setup_context,
-                    available_tools=["Terminal", "FileManager"]
+                    available_tools=["Terminal", "FileManager"],
+                    tool_registry=system.tools
                 )
                 
                 print(f"✅ Implementation Result: {impl_result.get('output', 'Completed')[:200]}...")
@@ -538,7 +522,8 @@ async def main():
                     f"Write unit tests, widget tests, and run flutter analyze to check code quality. "
                     f"Provide a detailed quality assessment and recommendations.",
                     context=setup_context,
-                    available_tools=["Terminal", "FileManager"]
+                    available_tools=["Terminal", "FileManager"],
+                    tool_registry=system.tools
                 )
                 
                 print(f"✅ Testing Result: {test_result.get('output', 'Completed')[:200]}...")

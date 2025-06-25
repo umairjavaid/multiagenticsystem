@@ -159,7 +159,9 @@ class Agent:
         self, 
         input_text: str, 
         context: Optional[Dict[str, Any]] = None,
-        tool_executor: Optional["ToolExecutor"] = None
+        tool_executor: Optional["ToolExecutor"] = None,
+        available_tools: Optional[List[str]] = None,
+        tool_registry: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Execute a task with standardized tool support."""
         start_time = time.time()
@@ -179,7 +181,7 @@ class Agent:
             # Prepare context
             execution_context = context or {}
             
-            # Get available tools in standardized format
+            # Handle tool access - support both new tool_executor and legacy available_tools
             if tool_executor:
                 tools_schema = tool_executor.get_tools_schema_for_agent(self.name)
                 if tools_schema:
@@ -190,6 +192,23 @@ class Agent:
                     else:
                         execution_context["tool_choice"] = "auto"
                     logger.debug(f"Agent {self.name}: Providing {len(tools_schema)} tools to LLM")
+            elif available_tools and tool_registry:
+                # Legacy support: create tool schemas from available_tools and tool_registry
+                tools_schemas = []
+                for tool_name in available_tools:
+                    if tool_name in tool_registry:
+                        tool = tool_registry[tool_name]
+                        if tool.can_be_used_by(self):
+                            schema = tool.get_schema()
+                            tools_schemas.append(schema)
+                
+                if tools_schemas:
+                    execution_context["tools"] = tools_schemas
+                    if self.llm_provider_name == "anthropic":
+                        execution_context["tool_choice"] = {"type": "auto"}
+                    else:
+                        execution_context["tool_choice"] = "auto"
+                    logger.debug(f"Agent {self.name}: Providing {len(tools_schemas)} legacy tools to LLM")
             
             # Prepare messages for LLM
             messages = []
@@ -227,7 +246,7 @@ class Agent:
                     final_response = response.content
                     break
                 
-                # Execute tool calls using standardized executor
+                # Execute tool calls using standardized executor or legacy tools
                 if tool_executor:
                     logger.debug(f"Agent {self.name}: Executing {len(tool_calls)} tool calls")
                     
@@ -258,14 +277,60 @@ class Agent:
                         else:
                             messages.append(tool_messages)
                     
-                    # Log tool usage
-                    for tool_response in tool_responses:
-                        if tool_response.success:
-                            logger.info(f"Tool '{tool_response.name}' executed successfully")
-                        else:
-                            logger.warning(f"Tool '{tool_response.name}' failed: {tool_response.error}")
+                elif tool_registry and available_tools:
+                    # Legacy tool execution support
+                    logger.debug(f"Agent {self.name}: Executing {len(tool_calls)} tool calls (legacy mode)")
+                    
+                    # Execute tool calls using legacy tools
+                    tool_results = []
+                    for tool_call in tool_calls:
+                        if tool_call.name in tool_registry and tool_call.name in available_tools:
+                            tool = tool_registry[tool_call.name]
+                            try:
+                                if tool.can_be_used_by(self):
+                                    result = await tool.execute(self, **tool_call.arguments)
+                                    tool_results.append({
+                                        "tool_call_id": tool_call.id,
+                                        "output": str(result.get('output', result))
+                                    })
+                                else:
+                                    tool_results.append({
+                                        "tool_call_id": tool_call.id, 
+                                        "output": f"Permission denied for tool {tool_call.name}"
+                                    })
+                            except Exception as e:
+                                tool_results.append({
+                                    "tool_call_id": tool_call.id,
+                                    "output": f"Tool execution error: {str(e)}"
+                                })
+                    
+                    # Add assistant message with tool calls to conversation
+                    messages.append({
+                        "role": "assistant", 
+                        "content": response.content,
+                        "tool_calls": [
+                            {
+                                "id": tc.id,
+                                "type": "function", 
+                                "function": {
+                                    "name": tc.name,
+                                    "arguments": json.dumps(tc.arguments)
+                                }
+                            } for tc in tool_calls
+                        ]
+                    })
+                    
+                    # Add tool results to conversation  
+                    for result in tool_results:
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": result["tool_call_id"],
+                            "content": result["output"]
+                        })
+                
                 else:
-                    # No tool executor available, cannot execute tools
+                    # No tool execution available
+                    logger.warning(f"Agent {self.name}: Tool calls requested but no tool executor or registry available")
                     final_response = response.content
                     break
             
