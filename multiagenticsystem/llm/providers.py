@@ -407,10 +407,55 @@ class AnthropicProvider(LLMProvider, StandardizedToolCallingMixin):
         """Get supported parameters for Anthropic."""
         return ["temperature", "max_tokens", "top_p", "top_k", "stop_sequences"]
     
+    def _format_messages_for_anthropic(self, messages: list) -> tuple[str, list]:
+        """Format messages for Anthropic API, converting tool messages and assistant tool_calls."""
+        system_message = ""
+        formatted_messages = []
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "system":
+                system_message = content
+            elif role == "tool":
+                # Convert tool message to user message with tool_result
+                tool_call_id = msg.get("tool_call_id", "")
+                formatted_messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": tool_call_id,
+                            "content": content
+                        }
+                    ]
+                })
+            elif role == "assistant" and msg.get("tool_calls"):
+                # Convert assistant message with tool_calls to Anthropic format
+                content_blocks = []
+                if content:
+                    content_blocks.append({"type": "text", "text": content})
+                for tool_call in msg["tool_calls"]:
+                    content_blocks.append({
+                        "type": "tool_use",
+                        "id": tool_call["id"],
+                        "name": tool_call["function"]["name"],
+                        "input": json.loads(tool_call["function"]["arguments"]) if isinstance(tool_call["function"]["arguments"], str) else tool_call["function"]["arguments"]
+                    })
+                formatted_messages.append({
+                    "role": "assistant",
+                    "content": content_blocks
+                })
+            else:
+                formatted_messages.append({
+                    "role": role,
+                    "content": content
+                })
+        return system_message, formatted_messages
+    
     async def execute(
         self,
-        messages: List[Dict[str, str]],
-        context: Optional[Dict[str, Any]] = None,
+        messages: list,
+        context: dict = None,
         **kwargs
     ) -> LLMResponse:
         """Execute Anthropic completion."""
@@ -441,19 +486,8 @@ class AnthropicProvider(LLMProvider, StandardizedToolCallingMixin):
                 
             client = AsyncAnthropic(**client_kwargs)
             
-            # Convert messages format (Anthropic has different format)
-            # Separate system message from conversation
-            system_message = ""
-            conversation_messages = []
-            
-            for msg in messages:
-                if msg.get("role") == "system":
-                    system_message = msg.get("content", "")
-                else:
-                    conversation_messages.append({
-                        "role": msg.get("role", "user"),
-                        "content": msg.get("content", "")
-                    })
+            # Format messages for Anthropic
+            system_message, conversation_messages = self._format_messages_for_anthropic(messages)
             
             # Ensure we have at least one user message and proper alternating pattern
             if not conversation_messages:
@@ -468,7 +502,14 @@ class AnthropicProvider(LLMProvider, StandardizedToolCallingMixin):
                 if msg["role"] == last_role:
                     # Merge consecutive messages from same role
                     if fixed_messages:
-                        fixed_messages[-1]["content"] += f"\n\n{msg['content']}"
+                        # Handle content that might be string or list
+                        if isinstance(fixed_messages[-1]["content"], str) and isinstance(msg["content"], str):
+                            fixed_messages[-1]["content"] += f"\n\n{msg['content']}"
+                        elif isinstance(fixed_messages[-1]["content"], list) and isinstance(msg["content"], list):
+                            fixed_messages[-1]["content"].extend(msg["content"])
+                        else:
+                            # Mixed types, append as new message
+                            fixed_messages.append(msg)
                     else:
                         fixed_messages.append(msg)
                 else:
@@ -578,12 +619,21 @@ class AnthropicProvider(LLMProvider, StandardizedToolCallingMixin):
         """Convert standardized tools to Anthropic format."""
         anthropic_tools = []
         for tool in tools:
-            if tool.get("type") == "function":
+            # Handle both OpenAI format (with 'function' key) and direct format
+            if "function" in tool:
+                # OpenAI format
                 func = tool["function"]
                 anthropic_tools.append({
                     "name": func["name"],
                     "description": func["description"],
                     "input_schema": func["parameters"]
+                })
+            else:
+                # Direct format (our standardized format)
+                anthropic_tools.append({
+                    "name": tool["name"],
+                    "description": tool["description"],
+                    "input_schema": tool["parameters"]
                 })
         return anthropic_tools
     
@@ -591,6 +641,22 @@ class AnthropicProvider(LLMProvider, StandardizedToolCallingMixin):
         """Extract tool calls from Anthropic response."""
         tool_calls = []
         
+        # First check if the response is an LLMResponse with tool_calls attribute
+        if hasattr(response, 'tool_calls') and response.tool_calls:
+            # Use the pre-extracted tool calls from LLMResponse
+            for tc_data in response.tool_calls:
+                if isinstance(tc_data, dict):
+                    tool_calls.append(ToolCallRequest(
+                        id=tc_data.get('id', ''),
+                        name=tc_data.get('name', ''),
+                        arguments=tc_data.get('arguments', {})
+                    ))
+                else:
+                    # Assume it's already a ToolCallRequest
+                    tool_calls.append(tc_data)
+            return tool_calls
+        
+        # Fallback: check response.content blocks (original behavior)
         if hasattr(response, 'content'):
             for block in response.content:
                 if getattr(block, 'type', None) == "tool_use":
@@ -935,7 +1001,6 @@ class TogetherProvider(LLMProvider):
             raise ValueError("Together AI API key not provided")
         
         self.base_url = kwargs.get("base_url", "https://api.together.xyz/v1")
-    
     async def execute(
         self,
         messages: List[Dict[str, str]],

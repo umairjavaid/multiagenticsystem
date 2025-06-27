@@ -8,6 +8,7 @@ from .task import Task, TaskStep, TaskStatus, Collaboration
 from .trigger import Trigger, TriggerType, TriggerStatus
 from .automation import Automation, AutomationStatus, AutomationMode
 from .system import System
+from .tool_parser import ToolCallParser
 
 __all__ = [
     # Agent
@@ -39,4 +40,7 @@ __all__ = [
     
     # System
     "System",
+    
+    # Tool Parser
+    "ToolCallParser",
 ]

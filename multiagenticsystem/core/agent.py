@@ -31,6 +31,7 @@ except ImportError:
 
 from ..llm.providers import LLMProvider, get_llm_provider
 from ..utils.logger import get_logger
+from .tool_parser import ToolCallParser
 
 logger = get_logger(__name__)
 
@@ -221,6 +222,9 @@ class Agent:
             for msg in self.memory[-10:]:
                 messages.append({"role": msg["role"], "content": msg["content"]})
             
+            # Add tool parser
+            parser = ToolCallParser()
+            
             # Start tool calling loop
             max_iterations = 5
             iteration = 0
@@ -236,11 +240,16 @@ class Agent:
                     context=execution_context
                 )
                 
-                # Check if LLM wants to use tools
+                # First check if LLM has native tool calling
                 tool_calls = []
                 if hasattr(self.llm_provider, 'extract_tool_calls'):
                     tool_calls = self.llm_provider.extract_tool_calls(response)
                 
+                # If no native tool calls, parse from response content
+                if not tool_calls and response.content:
+                    tool_calls = parser.extract_tool_calls(response.content)
+                    logger.debug(f"Parsed {len(tool_calls)} tool calls from response content")
+            
                 if not tool_calls:
                     # No tool calls, we're done
                     final_response = response.content
@@ -322,11 +331,24 @@ class Agent:
                     
                     # Add tool results to conversation  
                     for result in tool_results:
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": result["tool_call_id"],
-                            "content": result["output"]
-                        })
+                        # Check if provider is Anthropic and format accordingly
+                        if self.llm_provider_name == "anthropic":
+                            messages.append({
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "tool_result",
+                                        "tool_use_id": result["tool_call_id"],
+                                        "content": json.dumps(result["output"])
+                                    }
+                                ]
+                            })
+                        else:
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": result["tool_call_id"],
+                                "content": json.dumps(result["output"])
+                            })
                 
                 else:
                     # No tool execution available

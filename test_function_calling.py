@@ -108,6 +108,7 @@ class MockLLMProvider:
         self.api_key = "mock-key"
         self.config = kwargs
         self.call_count = 0
+        self.provider_type = kwargs.get("provider_type", "openai")  # Add provider type for testing
     
     def get_supported_parameters(self):
         return ["temperature", "max_tokens"]
@@ -141,11 +142,24 @@ class MockLLMProvider:
         """Create tool response messages."""
         messages = []
         for response in tool_responses:
-            messages.append({
-                "role": "tool",
-                "tool_call_id": response.id,
-                "content": json.dumps(response.to_dict())
-            })
+            if self.provider_type == "anthropic":
+                import json
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": response.id,
+                            "content": json.dumps(response.to_dict() if hasattr(response, 'to_dict') else response)
+                        }
+                    ]
+                })
+            else:
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": response.id,
+                    "content": json.dumps(response.to_dict() if hasattr(response, 'to_dict') else response)
+                })
         return messages
     
     async def execute(self, messages, context=None, **kwargs):
