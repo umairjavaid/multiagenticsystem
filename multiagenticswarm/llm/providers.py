@@ -395,7 +395,7 @@ class AnthropicProvider(LLMProvider, StandardizedToolCallingMixin):
     
     def __init__(self, model: str = "claude-3-5-sonnet-20241022", **kwargs):
         api_key = kwargs.get("api_key") or os.getenv("ANTHROPIC_API_KEY")
-        super().__init__(model, api_key, **kwargs)
+        super().__init__(model, api_key=api_key, **kwargs)
         
         self.base_url = kwargs.get("base_url")
         self.timeout = kwargs.get("timeout", 60)

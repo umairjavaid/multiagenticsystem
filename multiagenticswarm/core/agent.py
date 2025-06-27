@@ -83,6 +83,9 @@ class Agent:
             memory_enabled: Whether to maintain conversation memory
             agent_id: Optional custom agent ID
         """
+        if not name or not name.strip():
+            raise ValueError("Agent name cannot be empty")
+            
         self.id = agent_id or str(uuid.uuid4())
         self.name = name
         self.description = description
@@ -226,7 +229,7 @@ class Agent:
             parser = ToolCallParser()
             
             # Start tool calling loop
-            max_iterations = 5
+            max_iterations = self.max_iterations
             iteration = 0
             final_response = ""
             

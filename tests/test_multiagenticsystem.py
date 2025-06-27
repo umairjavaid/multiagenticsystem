@@ -4,6 +4,7 @@ Test suite for multiagenticswarm package.
 
 import pytest
 import asyncio
+from unittest.mock import Mock, AsyncMock, patch
 from multiagenticswarm import Agent, Tool, Task, System
 
 
@@ -46,16 +47,32 @@ class TestAgent:
     @pytest.mark.asyncio
     async def test_agent_execution(self):
         """Test agent execution."""
-        agent = Agent(
-            name="ExecutionTest",
-            system_prompt="You are a helpful assistant"
-        )
-        
-        result = await agent.execute("Hello, how are you?")
-        
-        assert result["success"] == True
-        assert result["agent_name"] == "ExecutionTest"
-        assert "output" in result
+        with patch('multiagenticswarm.core.agent.get_llm_provider') as mock_get_provider:
+            # Create a mock provider
+            mock_provider = Mock()
+            async def mock_execute(messages, **kwargs):
+                return Mock(content="Hello! I'm doing well, thank you for asking.", tool_calls=[])
+            mock_provider.execute = AsyncMock(side_effect=mock_execute)
+            mock_provider.extract_tool_calls.return_value = []  # No tool calls
+            mock_get_provider.return_value = mock_provider
+            
+            # Create an empty tool executor for the agent
+            from multiagenticswarm.core.tool_executor import ToolExecutor
+            tool_executor = ToolExecutor()
+            
+            agent = Agent(
+                name="ExecutionTest",
+                system_prompt="You are a helpful assistant"
+            )
+            
+            result = await agent.execute(
+                "Hello, how are you?",
+                tool_executor=tool_executor
+            )
+            
+            assert result["success"] == True
+            assert result["agent_name"] == "ExecutionTest"
+            assert "output" in result
 
 
 class TestTool:
@@ -258,21 +275,30 @@ class TestSystem:
     @pytest.mark.asyncio
     async def test_system_execution(self):
         """Test system execution capabilities."""
-        system = System()
-        
-        # Create a simple agent
-        agent = Agent("ExecutionAgent", system_prompt="You are helpful")
-        system.register_agent(agent)
-        
-        # Test agent execution through system
-        result = await system.execute_agent(
-            "ExecutionAgent",
-            "Hello world",
-            {"test": True}
-        )
-        
-        assert result["success"] == True
-        assert result["agent_name"] == "ExecutionAgent"
+        with patch('multiagenticswarm.core.agent.get_llm_provider') as mock_get_provider:
+            # Create a mock provider
+            mock_provider = Mock()
+            async def mock_execute(messages, **kwargs):
+                return Mock(content="Hello! I'm a helpful assistant.", tool_calls=[])
+            mock_provider.execute = AsyncMock(side_effect=mock_execute)
+            mock_provider.extract_tool_calls.return_value = []  # No tool calls
+            mock_get_provider.return_value = mock_provider
+            
+            system = System()
+            
+            # Create a simple agent
+            agent = Agent("ExecutionAgent", system_prompt="You are helpful")
+            system.register_agent(agent)
+            
+            # Test agent execution through system
+            result = await system.execute_agent(
+                "ExecutionAgent",
+                "Hello world",
+                {"test": True}
+            )
+            
+            assert result["success"] == True
+            assert result["agent_name"] == "ExecutionAgent"
 
 
 class TestIntegration:
@@ -281,45 +307,54 @@ class TestIntegration:
     @pytest.mark.asyncio
     async def test_complete_workflow(self):
         """Test a complete workflow from start to finish."""
-        system = System()
-        
-        # Create agents
-        analyst = Agent("DataAnalyst", system_prompt="Analyze data")
-        executor = Agent("ActionExecutor", system_prompt="Execute actions")
-        
-        # Create tools
-        def fetch_data(query: str) -> dict:
-            return {"data": f"fetched for {query}"}
-        
-        def process_data(data: dict) -> dict:
-            return {"processed": data}
-        
-        fetcher = Tool("DataFetcher", func=fetch_data)
-        fetcher.set_local(analyst)
-        
-        processor = Tool("DataProcessor", func=process_data)
-        processor.set_shared(analyst, executor)
-        
-        # Create task
-        task = Task("AnalysisWorkflow")
-        task.add_step("DataAnalyst", "DataFetcher", "get sales data")
-        task.add_step("ActionExecutor", "DataProcessor", "process results")
-        
-        # Register everything
-        system.register_agents(analyst, executor)
-        system.register_tools(fetcher, processor)
-        system.register_task(task)
-        
-        # Verify system state
-        status = system.get_system_status()
-        assert status["agents"] == 2
-        assert status["tools"] >= 4  # 2 custom + 2 built-in
-        assert status["tasks"] == 1
-        
-        # Test task execution
-        result = await system.execute_task("AnalysisWorkflow")
-        assert result["success"] == True
-        assert result["task_name"] == "AnalysisWorkflow"
+        with patch('multiagenticswarm.core.agent.get_llm_provider') as mock_get_provider:
+            # Create a mock provider
+            mock_provider = Mock()
+            async def mock_execute(messages, **kwargs):
+                return Mock(content="Task completed successfully", tool_calls=[])
+            mock_provider.execute = AsyncMock(side_effect=mock_execute)
+            mock_provider.extract_tool_calls.return_value = []  # No tool calls
+            mock_get_provider.return_value = mock_provider
+            
+            system = System()
+            
+            # Create agents
+            analyst = Agent("DataAnalyst", system_prompt="Analyze data")
+            executor = Agent("ActionExecutor", system_prompt="Execute actions")
+            
+            # Create tools
+            def fetch_data(query: str) -> dict:
+                return {"data": f"fetched for {query}"}
+            
+            def process_data(data: dict) -> dict:
+                return {"processed": data}
+            
+            fetcher = Tool("DataFetcher", func=fetch_data)
+            fetcher.set_local(analyst)
+            
+            processor = Tool("DataProcessor", func=process_data)
+            processor.set_shared(analyst, executor)
+            
+            # Create task
+            task = Task("AnalysisWorkflow")
+            task.add_step("DataAnalyst", "DataFetcher", "get sales data")
+            task.add_step("ActionExecutor", "DataProcessor", "process results")
+            
+            # Register everything
+            system.register_agents(analyst, executor)
+            system.register_tools(fetcher, processor)
+            system.register_task(task)
+            
+            # Verify system state
+            status = system.get_system_status()
+            assert status["agents"] == 2
+            assert status["tools"] >= 4  # 2 custom + 2 built-in
+            assert status["tasks"] == 1
+            
+            # Test task execution
+            result = await system.execute_task("AnalysisWorkflow")
+            assert result["success"] == True
+            assert result["task_name"] == "AnalysisWorkflow"
 
 
 if __name__ == "__main__":

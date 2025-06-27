@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from .agent import Agent
 from .tool import Tool, create_logger_tool, create_memory_tool
-from .task import Task, Collaboration
+from .task import Task, Collaboration, TaskStatus
 from .trigger import Trigger
 from .automation import Automation
 from .base_tool import BaseTool, FunctionTool, ToolScope
@@ -77,6 +77,11 @@ class System:
             "verbose": verbose
         })
         logger.info("MultiAgenticSwarm initialized")
+    
+    @property
+    def events(self) -> List[Dict[str, Any]]:
+        """Alias for event_queue to maintain backward compatibility with tests."""
+        return self.event_queue
     
     def _add_builtin_tools(self) -> None:
         """Add built-in utility tools to the system."""
@@ -333,7 +338,7 @@ class System:
         logger.info(f"Executing task: {task_name}")
         
         results = []
-        task.status = task.TaskStatus.RUNNING if hasattr(task, 'TaskStatus') else "running"
+        task.status = TaskStatus.RUNNING
         
         for step in task.steps:
             agent = self.get_agent(step.agent)
@@ -360,7 +365,7 @@ class System:
                 logger.error(f"Task step failed: {e}")
                 break
         
-        task.status = "completed" if task.is_completed() else "failed"
+        task.status = TaskStatus.COMPLETED if task.current_step >= len(task.steps) else TaskStatus.FAILED
         
         return {
             "task_name": task_name,
