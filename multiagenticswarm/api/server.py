@@ -1,5 +1,5 @@
 """
-API server for MultiAgenticSystem.
+API server for MultiAgenticSwarm.
 """
 
 from fastapi import FastAPI

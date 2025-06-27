@@ -1,5 +1,5 @@
 """
-LLM provider package for multiagenticsystem.
+LLM provider package for multiagenticswarm.
 """
 
 from .providers import (

@@ -1,5 +1,5 @@
 """
-Web interface for MultiAgenticSystem using FastAPI.
+Web interface for MultiAgenticSwarm using FastAPI.
 """
 
 from typing import Any, Dict, List, Optional
@@ -45,7 +45,7 @@ def create_app(system: System) -> FastAPI:
     """Create FastAPI application with system integration."""
     
     app = FastAPI(
-        title="MultiAgenticSystem",
+        title="MultiAgenticSwarm",
         description="Web interface for multi-agent system management",
         version="0.1.0"
     )
@@ -55,7 +55,7 @@ def create_app(system: System) -> FastAPI:
     <!DOCTYPE html>
     <html>
     <head>
-        <title>MultiAgenticSystem Dashboard</title>
+        <title>MultiAgenticSwarm Dashboard</title>
         <style>
             body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
             .container { max-width: 1200px; margin: 0 auto; }
@@ -80,7 +80,7 @@ def create_app(system: System) -> FastAPI:
     <body>
         <div class="container">
             <div class="header">
-                <h1>🤖 MultiAgenticSystem Dashboard</h1>
+                <h1>🤖 MultiAgenticSwarm Dashboard</h1>
                 <p>Manage your multi-agent system with hierarchical tool sharing and event-driven automation</p>
             </div>
             

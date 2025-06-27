@@ -1,5 +1,5 @@
 """
-API package for multiagenticsystem.
+API package for multiagenticswarm.
 """
 
 from .server import create_api

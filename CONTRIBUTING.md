@@ -1,6 +1,6 @@
-# Contributing to MultiAgenticSystem
+# Contributing to MultiAgenticSwarm
 
-We welcome contributions to MultiAgenticSystem! This document provides guidelines for contributing to the project.
+We welcome contributions to MultiAgenticSwarm! This document provides guidelines for contributing to the project.
 
 ## 🚀 Getting Started
 
@@ -14,8 +14,8 @@ We welcome contributions to MultiAgenticSystem! This document provides guideline
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/multiagenticsystem/multiagenticsystem.git
-   cd multiagenticsystem
+   git clone https://github.com/multiagenticswarm/multiagenticswarm.git
+   cd multiagenticswarm
    ```
 
 2. **Create a virtual environment**
@@ -47,9 +47,9 @@ We use the following tools for code quality:
 Run these before submitting:
 
 ```bash
-black multiagenticsystem/
-flake8 multiagenticsystem/
-mypy multiagenticsystem/
+black multiagenticswarm/
+flake8 multiagenticswarm/
+mypy multiagenticswarm/
 ```
 
 ### Testing
@@ -63,7 +63,7 @@ mypy multiagenticsystem/
 pytest
 
 # Run with coverage
-pytest --cov=multiagenticsystem
+pytest --cov=multiagenticswarm
 
 # Run specific test file
 pytest tests/test_agent.py
@@ -82,7 +82,7 @@ pytest tests/test_agent.py
 When reporting bugs, please include:
 
 - Python version and OS
-- MultiAgenticSystem version
+- MultiAgenticSwarm version
 - Minimal code example that reproduces the issue
 - Expected vs. actual behavior
 - Error messages and stack traces
@@ -112,8 +112,8 @@ For new features, please:
 4. **Test your changes**
    ```bash
    pytest
-   black multiagenticsystem/
-   flake8 multiagenticsystem/
+   black multiagenticswarm/
+   flake8 multiagenticswarm/
    ```
 
 5. **Commit with clear messages**
@@ -257,9 +257,9 @@ We follow [Semantic Versioning](https://semver.org/):
 
 ### Documentation
 
-- [API Reference](https://multiagenticsystem.readthedocs.io/api/)
-- [User Guide](https://multiagenticsystem.readthedocs.io/guide/)
-- [Examples](https://github.com/multiagenticsystem/multiagenticsystem/tree/main/examples)
+- [API Reference](https://multiagenticswarm.readthedocs.io/api/)
+- [User Guide](https://multiagenticswarm.readthedocs.io/guide/)
+- [Examples](https://github.com/multiagenticswarm/multiagenticswarm/tree/main/examples)
 
 ### Related Projects
 
@@ -273,7 +273,7 @@ We follow [Semantic Versioning](https://semver.org/):
 - **Documentation**: Check docs first
 - **GitHub Issues**: Search existing issues
 - **Discord**: Real-time help and discussion
-- **Stack Overflow**: Tag `multiagenticsystem`
+- **Stack Overflow**: Tag `multiagenticswarm`
 
 ## 🙏 Recognition
 
@@ -283,4 +283,4 @@ Contributors will be:
 - Mentioned in release notes
 - Invited to maintainer discussions (major contributors)
 
-Thank you for contributing to MultiAgenticSystem! 🎉
+Thank you for contributing to MultiAgenticSwarm! 🎉

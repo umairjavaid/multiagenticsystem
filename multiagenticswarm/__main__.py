@@ -1,5 +1,5 @@
 """
-Main entry point for the multiagenticsystem package.
+Main entry point for the multiagenticswarm package.
 """
 
 import argparse
@@ -15,7 +15,7 @@ from .utils.logger import setup_logger
 def main() -> None:
     """Main entry point for the CLI."""
     parser = argparse.ArgumentParser(
-        description="MultiAgenticSystem - LangGraph-based multi-agent orchestration"
+        description="MultiAgenticSwarm - LangGraph-based multi-agent orchestration"
     )
     
     parser.add_argument(
@@ -77,7 +77,7 @@ def main() -> None:
         
         # Run based on mode
         if args.mode == "cli":
-            print("Starting MultiAgenticSystem in CLI mode...")
+            print("Starting MultiAgenticSwarm in CLI mode...")
             asyncio.run(system.run_async())
             
         elif args.mode == "web":
@@ -95,7 +95,7 @@ def main() -> None:
             uvicorn.run(api, host=args.host, port=args.port)
             
     except KeyboardInterrupt:
-        print("\nShutting down MultiAgenticSystem...")
+        print("\nShutting down MultiAgenticSwarm...")
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)

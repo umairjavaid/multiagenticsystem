@@ -1,6 +1,6 @@
-# MultiAgenticSystem Examples
+# MultiAgenticSwarm Examples
 
-This directory contains examples demonstrating various features and use cases of the MultiAgenticSystem.
+This directory contains examples demonstrating various features and use cases of the MultiAgenticSwarm.
 
 ## 📂 Available Examples
 
@@ -46,9 +46,9 @@ python simple_demo.py
 
 ### Prerequisites
 
-1. Install the MultiAgenticSystem:
+1. Install the MultiAgenticSwarm:
 ```bash
-pip install multiagenticsystem
+pip install multiagenticswarm
 ```
 
 2. Set up your LLM API keys:
@@ -150,7 +150,7 @@ After exploring these examples:
 
 ## 📖 Additional Resources
 
-- [MultiAgenticSystem Documentation](../README.md)
+- [MultiAgenticSwarm Documentation](../README.md)
 - [API Reference](../docs/api/)
 - [Best Practices Guide](../docs/best_practices.md)
 - [Contributing Guidelines](../CONTRIBUTING.md)

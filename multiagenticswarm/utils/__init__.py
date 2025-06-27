@@ -1,5 +1,5 @@
 """
-Utilities package for multiagenticsystem.
+Utilities package for multiagenticswarm.
 """
 
 from .logger import (
@@ -9,7 +9,7 @@ from .logger import (
     setup_comprehensive_logging,
     log_decorator,
     async_log_decorator,
-    MultiAgenticSystemLogger
+    MultiAgenticSwarmLogger
 )
 
 __all__ = [
@@ -19,5 +19,5 @@ __all__ = [
     "setup_comprehensive_logging",
     "log_decorator",
     "async_log_decorator", 
-    "MultiAgenticSystemLogger"
+    "MultiAgenticSwarmLogger"
 ]

@@ -1,5 +1,5 @@
 """
-Log viewer utility for the multiagenticsystem package.
+Log viewer utility for the multiagenticswarm package.
 Provides easy access to view and filter logs.
 """
 
@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 class LogViewer:
-    """Utility class for viewing and analyzing multiagenticsystem logs."""
+    """Utility class for viewing and analyzing multiagenticswarm logs."""
     
     def __init__(self, log_dir: Optional[str] = None):
         """Initialize the LogViewer.

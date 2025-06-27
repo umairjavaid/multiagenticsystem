@@ -12,10 +12,10 @@ from pathlib import Path
 # Add the project root to the path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from multiagenticsystem.core.system import System
-from multiagenticsystem.core.agent import Agent
-from multiagenticsystem.core.base_tool import FunctionTool, PydanticTool, ToolScope, ToolCallRequest, ToolCallResponse
-from multiagenticsystem.llm.providers import LLMResponse
+from multiagenticswarm.core.system import System
+from multiagenticswarm.core.agent import Agent
+from multiagenticswarm.core.base_tool import FunctionTool, PydanticTool, ToolScope, ToolCallRequest, ToolCallResponse
+from multiagenticswarm.llm.providers import LLMResponse
 
 try:
     from pydantic import BaseModel, Field
@@ -489,7 +489,7 @@ async def test_tool_execution_stats():
 
 async def main():
     """Run all tests."""
-    print("🚀 MultiAgenticSystem - Standardized Function Calling Tests")
+    print("🚀 MultiAgenticSwarm - Standardized Function Calling Tests")
     print("=" * 60)
     
     # List of tests to run

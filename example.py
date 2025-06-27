@@ -1,5 +1,5 @@
 """
-Example usage of the MultiAgenticSystem package.
+Example usage of the MultiAgenticSwarm package.
 
 This example demonstrates all major features:
 - Agent creation with different LLM providers
@@ -10,7 +10,7 @@ This example demonstrates all major features:
 """
 
 import asyncio
-from multiagenticsystem import Agent, Tool, Task, Collaboration, Trigger, Automation, System
+from multiagenticswarm import Agent, Tool, Task, Collaboration, Trigger, Automation, System
 
 
 # Mock functions for demonstration
@@ -224,7 +224,7 @@ def main():
     
     # 6️⃣ Demonstrate system capabilities
     print("\n" + "="*50)
-    print("🚀 MULTIAGENTICSYSTEM DEMONSTRATION")
+    print("🚀 MULTIAGENTICSWARM DEMONSTRATION")
     print("="*50)
     
     # Show system status
@@ -287,7 +287,7 @@ def main():
     new_status = new_system.get_system_status()
     print(f"Loaded system with {new_status['agents']} agents, {new_status['tools']} tools")
     
-    print(f"\n✅ MultiAgenticSystem demonstration completed!")
+    print(f"\n✅ MultiAgenticSwarm demonstration completed!")
     print("="*50)
 
 

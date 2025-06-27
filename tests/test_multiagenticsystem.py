@@ -1,10 +1,10 @@
 """
-Test suite for multiagenticsystem package.
+Test suite for multiagenticswarm package.
 """
 
 import pytest
 import asyncio
-from multiagenticsystem import Agent, Tool, Task, System
+from multiagenticswarm import Agent, Tool, Task, System
 
 
 class TestAgent:

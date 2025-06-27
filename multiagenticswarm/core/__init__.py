@@ -1,5 +1,5 @@
 """
-Core package for multiagenticsystem components.
+Core package for multiagenticswarm components.
 """
 
 from .agent import Agent, AgentConfig

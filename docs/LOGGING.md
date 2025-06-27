@@ -1,14 +1,14 @@
-# MultiAgenticSystem Comprehensive Logging
+# MultiAgenticSwarm Comprehensive Logging
 
-This document explains how to use the comprehensive logging system in MultiAgenticSystem.
+This document explains how to use the comprehensive logging system in MultiAgenticSwarm.
 
 ## 🚀 Quick Start
 
 ### Basic Setup
 
 ```python
-import multiagenticsystem as mas
-from multiagenticsystem.logging import setup_logging, view_logs, get_summary
+import multiagenticswarm as mas
+from multiagenticswarm.logging import setup_logging, view_logs, get_summary
 
 # Setup logging (call this once at the beginning)
 log_config = setup_logging(
@@ -32,7 +32,7 @@ For existing projects like `flutter_app_builder`:
 
 ```python
 # At the top of your script:
-from multiagenticsystem.logging import setup_logging, view_logs, export_logs
+from multiagenticswarm.logging import setup_logging, view_logs, export_logs
 
 # Setup logging at the beginning
 setup_logging(verbose=True, log_directory="./my_project_logs")
@@ -81,8 +81,8 @@ The logging system automatically captures:
 ### Text Logs
 Human-readable format for quick viewing:
 ```
-2025-06-23 14:15:30 - multiagenticsystem.core.agent - INFO - Agent action: DataAnalyst - process_data
-2025-06-23 14:15:31 - multiagenticsystem.llm.openai - INFO - LLM Request to openai/gpt-4
+2025-06-23 14:15:30 - multiagenticswarm.core.agent - INFO - Agent action: DataAnalyst - process_data
+2025-06-23 14:15:31 - multiagenticswarm.llm.openai - INFO - LLM Request to openai/gpt-4
 ```
 
 ### JSON Logs
@@ -91,7 +91,7 @@ Structured format for analysis and monitoring:
 {
   "timestamp": "2025-06-23T14:15:30.123456",
   "level": "INFO",
-  "logger": "multiagenticsystem.core.agent",
+  "logger": "multiagenticswarm.core.agent",
   "message": "Agent action: DataAnalyst - process_data",
   "mas_event_type": "agent_action",
   "mas_agent": "DataAnalyst",
@@ -104,7 +104,7 @@ Structured format for analysis and monitoring:
 
 ### Quick Viewing
 ```python
-from multiagenticsystem.logging import view_logs, search_logs, get_summary
+from multiagenticswarm.logging import view_logs, search_logs, get_summary
 
 # View recent activity
 view_logs(lines=50)
@@ -120,7 +120,7 @@ get_summary()
 
 ### Detailed Analysis
 ```python
-from multiagenticsystem.logging import (
+from multiagenticswarm.logging import (
     get_logs_for_agent, get_logs_for_session, get_llm_logs
 )
 
@@ -138,7 +138,7 @@ anthropic_logs = get_llm_logs("anthropic")
 
 ### Export for External Analysis
 ```python
-from multiagenticsystem.logging import export_logs
+from multiagenticswarm.logging import export_logs
 
 # Export all logs
 export_logs("complete_session.json")
@@ -163,7 +163,7 @@ setup_logging(
 
 ### Programmatic Logging
 ```python
-from multiagenticsystem.logging import log_info, log_debug, log_warning, log_error
+from multiagenticswarm.logging import log_info, log_debug, log_warning, log_error
 
 # Manual logging for custom events
 log_info("Processing started", user_id="12345", batch_size=100)
@@ -174,7 +174,7 @@ log_error("Operation failed", error_code=500, details="Network timeout")
 
 ### Using the Logger Directly
 ```python
-from multiagenticsystem.utils.logger import get_logger
+from multiagenticswarm.utils.logger import get_logger
 
 logger = get_logger("my_component")
 
@@ -189,20 +189,20 @@ logger.log_llm_request("openai", "gpt-4", [{"role": "user", "content": "Hello"}]
 ### Command Line Monitoring
 ```bash
 # Monitor text logs in real-time
-tail -f ./logs/multiagenticsystem_*.log
+tail -f ./logs/multiagenticswarm_*.log
 
 # Monitor JSON logs with formatting
-tail -f ./logs/multiagenticsystem_*.json | jq .
+tail -f ./logs/multiagenticswarm_*.json | jq .
 
 # Filter for specific events
-tail -f ./logs/multiagenticsystem_*.json | jq 'select(.mas_event_type == "llm_request")'
+tail -f ./logs/multiagenticswarm_*.json | jq 'select(.mas_event_type == "llm_request")'
 ```
 
 ### Programmatic Monitoring
 ```python
 import time
-from multiagenticsystem.logging import get_summary
-from multiagenticsystem.utils.logger import get_log_viewer
+from multiagenticswarm.logging import get_summary
+from multiagenticswarm.utils.logger import get_log_viewer
 
 def monitor_system():
     viewer = get_log_viewer()
@@ -273,7 +273,7 @@ Typical overhead: < 1% CPU, < 10MB memory for normal usage.
 ### Logs Not Appearing
 ```python
 # Check logging configuration
-from multiagenticsystem.logging import get_config
+from multiagenticswarm.logging import get_config
 config = get_config()
 print(config)
 
@@ -313,7 +313,7 @@ See the complete examples in:
 
 To add custom logging to your components:
 
-1. Import the logger: `from multiagenticsystem.utils.logger import get_logger`
+1. Import the logger: `from multiagenticswarm.utils.logger import get_logger`
 2. Create a logger instance: `logger = get_logger("my_component")`
 3. Use appropriate log methods for your events
 4. Follow the existing patterns for consistency

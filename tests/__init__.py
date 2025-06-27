@@ -1,5 +1,5 @@
 """
-Test package for multiagenticsystem.
+Test package for multiagenticswarm.
 """
 
 # Test configuration

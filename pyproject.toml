@@ -3,11 +3,11 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "multiagenticsystem"
+name = "multiagenticswarm"
 version = "0.1.0"
 description = "A powerful LangGraph-based multi-agent system with dynamic configuration and hierarchical tool sharing"
 authors = [
-    {name = "MultiAgenticSystem Team", email = "contact@multiagenticsystem.dev"}
+    {name = "MultiAgenticSwarm Team", email = "contact@multiagenticswarm.dev"}
 ]
 readme = "README.md"
 license = {text = "MIT"}
@@ -56,17 +56,17 @@ examples = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/multiagenticsystem/multiagenticsystem"
-Repository = "https://github.com/multiagenticsystem/multiagenticsystem"
-Documentation = "https://multiagenticsystem.readthedocs.io"
-"Bug Tracker" = "https://github.com/multiagenticsystem/multiagenticsystem/issues"
+Homepage = "https://github.com/multiagenticswarm/multiagenticswarm"
+Repository = "https://github.com/multiagenticswarm/multiagenticswarm"
+Documentation = "https://multiagenticswarm.readthedocs.io"
+"Bug Tracker" = "https://github.com/multiagenticswarm/multiagenticswarm/issues"
 
 [project.scripts]
-multiagenticsystem = "multiagenticsystem.__main__:main"
+multiagenticswarm = "multiagenticswarm.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["multiagenticsystem*"]
+include = ["multiagenticswarm*"]
 exclude = ["tests*", "examples*"]
 
 [tool.black]

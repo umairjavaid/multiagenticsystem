@@ -76,7 +76,7 @@ class System:
             "logging_enabled": enable_logging,
             "verbose": verbose
         })
-        logger.info("MultiAgenticSystem initialized")
+        logger.info("MultiAgenticSwarm initialized")
     
     def _add_builtin_tools(self) -> None:
         """Add built-in utility tools to the system."""
@@ -461,7 +461,7 @@ class System:
     async def run_async(self) -> None:
         """Run the system asynchronously."""
         self.running = True
-        logger.info("Starting MultiAgenticSystem...")
+        logger.info("Starting MultiAgenticSwarm...")
         
         try:
             while self.running:
@@ -476,7 +476,7 @@ class System:
     async def shutdown(self) -> None:
         """Shutdown the system gracefully."""
         self.running = False
-        logger.info("MultiAgenticSystem shut down")
+        logger.info("MultiAgenticSwarm shut down")
     
     # System Information
     def get_system_status(self) -> Dict[str, Any]:

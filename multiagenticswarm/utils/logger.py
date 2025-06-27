@@ -1,5 +1,5 @@
 """
-Comprehensive logging utilities for the multiagenticsystem package.
+Comprehensive logging utilities for the multiagenticswarm package.
 """
 
 import json
@@ -29,14 +29,14 @@ class StructuredFormatter(logging.Formatter):
         
         # Add custom fields if they exist
         for key, value in record.__dict__.items():
-            if key.startswith('mas_'):  # multiagenticsystem custom fields
+            if key.startswith('mas_'):  # MultiAgenticSwarm custom fields
                 log_entry[key] = value
         
         return json.dumps(log_entry, default=str)
 
 
-class MultiAgenticSystemLogger:
-    """Enhanced logger for the multiagenticsystem with comprehensive tracking."""
+class MultiAgenticSwarmLogger:
+    """Enhanced logger for the multiagenticswarm with comprehensive tracking."""
     
     def __init__(self, name: str):
         self.logger = logging.getLogger(name)
@@ -224,7 +224,7 @@ def setup_comprehensive_logging(
     # Create log directory if needed
     if log_to_file:
         if log_directory is None:
-            log_directory = os.path.join(os.getcwd(), "logs", "multiagenticsystem")
+            log_directory = os.path.join(os.getcwd(), "logs", "MultiAgenticSwarm")
         
         log_path = Path(log_directory)
         log_path.mkdir(parents=True, exist_ok=True)
@@ -233,7 +233,7 @@ def setup_comprehensive_logging(
         # Setup file handler with rotation
         from logging.handlers import RotatingFileHandler
         
-        log_file = log_path / f"multiagenticsystem_{datetime.now().strftime('%Y%m%d')}.log"
+        log_file = log_path / f"MultiAgenticSwarm_{datetime.now().strftime('%Y%m%d')}.log"
         file_handler = RotatingFileHandler(
             log_file, 
             maxBytes=max_log_size,
@@ -245,7 +245,7 @@ def setup_comprehensive_logging(
         
         # Setup JSON log file for structured logs
         if enable_json_logs:
-            json_log_file = log_path / f"multiagenticsystem_{datetime.now().strftime('%Y%m%d')}.json"
+            json_log_file = log_path / f"MultiAgenticSwarm_{datetime.now().strftime('%Y%m%d')}.json"
             json_handler = RotatingFileHandler(
                 json_log_file,
                 maxBytes=max_log_size, 
@@ -261,8 +261,8 @@ def setup_comprehensive_logging(
     console_handler.setFormatter(logging.Formatter(console_format))
     console_handler.setLevel(level)
     
-    # Configure root logger for multiagenticsystem
-    mas_logger = logging.getLogger('multiagenticsystem')
+    # Configure root logger for MultiAgenticSwarm
+    mas_logger = logging.getLogger('MultiAgenticSwarm')
     mas_logger.setLevel(logging.DEBUG)
     
     # Clear existing handlers
@@ -292,7 +292,7 @@ def setup_comprehensive_logging(
     # Store globally for easy access
     set_logging_config(log_info)
     
-    print(f"✅ MultiAgenticSystem logging initialized")
+    print(f"✅ MultiAgenticSwarm logging initialized")
     print(f"📁 Log directory: {log_info.get('log_directory', 'None')}")
     if log_to_file:
         print(f"📄 Text logs: {log_info.get('text_log_file', 'None')}")
@@ -312,7 +312,7 @@ def setup_logging(level: str = "INFO",
                  backup_count: int = 5,
                  include_metadata: bool = True) -> Dict[str, str]:
     """
-    Set up comprehensive logging for multiagenticsystem.
+    Set up comprehensive logging for MultiAgenticSwarm.
     
     Args:
         level: Log level (DEBUG, INFO, WARNING, ERROR)
@@ -355,9 +355,9 @@ def setup_logger(verbose: bool = False) -> None:
     setup_comprehensive_logging(verbose=verbose)
 
 
-def get_logger(name: str) -> MultiAgenticSystemLogger:
+def get_logger(name: str) -> MultiAgenticSwarmLogger:
     """Get an enhanced logger instance for the given name."""
-    return MultiAgenticSystemLogger(name)
+    return MultiAgenticSwarmLogger(name)
 
 
 def get_simple_logger(name: str) -> logging.Logger:
@@ -365,7 +365,7 @@ def get_simple_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)
 
 
-def log_decorator(logger: MultiAgenticSystemLogger):
+def log_decorator(logger: MultiAgenticSwarmLogger):
     """Decorator to automatically log function calls and results."""
     def decorator(func):
         @wraps(func)
@@ -409,7 +409,7 @@ def log_decorator(logger: MultiAgenticSystemLogger):
     return decorator
 
 
-def async_log_decorator(logger: MultiAgenticSystemLogger):
+def async_log_decorator(logger: MultiAgenticSwarmLogger):
     """Decorator to automatically log async function calls and results."""
     def decorator(func):
         @wraps(func)
@@ -458,7 +458,7 @@ class LogViewer:
     
     def __init__(self, log_directory: Optional[str] = None):
         """Initialize log viewer with specified directory."""
-        self.log_directory = log_directory or os.path.join(os.getcwd(), "logs", "multiagenticsystem")
+        self.log_directory = log_directory or os.path.join(os.getcwd(), "logs", "MultiAgenticSwarm")
         self.log_path = Path(self.log_directory)
     
     def get_log_files(self) -> Dict[str, List[str]]:
@@ -678,7 +678,7 @@ def get_system_summary() -> None:
     viewer = get_log_viewer()
     summary = viewer.generate_summary_report()
     
-    print("\n=== MultiAgenticSystem Activity Summary ===")
+    print("\n=== MultiAgenticSwarm Activity Summary ===")
     print(f"Total log files: {summary['total_log_files']}")
     print(f"Active sessions: {len(summary['sessions'])}")
     print(f"Agents used: {len(summary['agents'])}")

@@ -1,4 +1,4 @@
-# MultiAgenticSystem
+# MultiAgenticSwarm
 
 A powerful LangGraph-based multi-agent system with dynamic configuration and hierarchical tool sharing.
 
@@ -39,13 +39,13 @@ A powerful LangGraph-based multi-agent system with dynamic configuration and hie
 ### Installation
 
 ```bash
-pip install multiagenticsystem
+pip install multiagenticswarm
 ```
 
 ### Basic Usage
 
 ```python
-from multiagenticsystem import Agent, Tool, Task, System
+from multiagenticswarm import Agent, Tool, Task, System
 
 # Create agents with different LLMs
 agent1 = Agent("DataAnalyst", 
@@ -149,7 +149,7 @@ automations:
 Then run with:
 
 ```python
-from multiagenticsystem import System
+from multiagenticswarm import System
 
 system = System.from_config("config.yaml")
 system.run()
@@ -160,7 +160,7 @@ system.run()
 ### Event-Driven Automations
 
 ```python
-from multiagenticsystem import Trigger, Automation
+from multiagenticswarm import Trigger, Automation
 
 # Define triggers
 email_trigger = Trigger("OnEmailReceived", 
@@ -174,7 +174,7 @@ system.register_automations(auto_response)
 ### Custom Tool Development
 
 ```python
-from multiagenticsystem import Tool
+from multiagenticswarm import Tool
 
 def custom_api_call(endpoint: str, data: dict) -> dict:
     # Your custom logic here
@@ -203,8 +203,8 @@ agents = [
 ### Running from Source
 
 ```bash
-git clone https://github.com/multiagenticsystem/multiagenticsystem
-cd multiagenticsystem
+git clone https://github.com/multiagenticswarm/multiagenticswarm
+cd multiagenticswarm
 pip install -e ".[dev]"
 ```
 
@@ -217,20 +217,20 @@ pytest
 ### Code Formatting
 
 ```bash
-black multiagenticsystem/
-flake8 multiagenticsystem/
-mypy multiagenticsystem/
+black multiagenticswarm/
+flake8 multiagenticswarm/
+mypy multiagenticswarm/
 ```
 
 ## 📚 Documentation
 
-- **[API Reference](https://multiagenticsystem.readthedocs.io/api/)**
-- **[User Guide](https://multiagenticsystem.readthedocs.io/guide/)**
-- **[Examples](https://github.com/multiagenticsystem/multiagenticsystem/tree/main/examples)**
+- **[API Reference](https://multiagenticswarm.readthedocs.io/api/)**
+- **[User Guide](https://multiagenticswarm.readthedocs.io/guide/)**
+- **[Examples](https://github.com/multiagenticswarm/multiagenticswarm/tree/main/examples)**
 
-## 🏆 Why MultiAgenticSystem?
+## 🏆 Why MultiAgenticSwarm?
 
-| Feature | CrewAI | AutoGen | LangGraph | **MultiAgenticSystem** |
+| Feature | CrewAI | AutoGen | LangGraph | **MultiAgenticSwarm** |
 |---------|--------|---------|-----------|------------------------|
 | **Ease of Use** | ✅ Simple | ❌ Complex | ❌ Low-level | ✅ **Simple + Powerful** |
 | **Tool Sharing** | ❌ Basic | ❌ Limited | ❌ Manual | ✅ **Hierarchical** |
@@ -249,7 +249,7 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 
 ## 🔗 Links
 
-- **GitHub**: https://github.com/multiagenticsystem/multiagenticsystem
-- **PyPI**: https://pypi.org/project/multiagenticsystem/
-- **Documentation**: https://multiagenticsystem.readthedocs.io
-- **Discord**: https://discord.gg/multiagenticsystem
+- **GitHub**: https://github.com/multiagenticswarm/multiagenticswarm
+- **PyPI**: https://pypi.org/project/multiagenticswarm/
+- **Documentation**: https://multiagenticswarm.readthedocs.io
+- **Discord**: https://discord.gg/MultiAgenticSwarm

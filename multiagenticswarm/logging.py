@@ -1,5 +1,5 @@
 """
-Logging utilities and convenience functions for MultiAgenticSystem.
+Logging utilities and convenience functions for MultiAgenticSwarm.
 
 This module provides easy access to logging functionality when using the package.
 """
@@ -41,7 +41,7 @@ def setup_logging(
     enable_json_logs: bool = True
 ) -> Dict[str, str]:
     """
-    Setup comprehensive logging for MultiAgenticSystem.
+    Setup comprehensive logging for MultiAgenticSwarm.
     
     Args:
         verbose: Enable debug level logging
@@ -52,7 +52,7 @@ def setup_logging(
         Dictionary with log file paths and configuration
         
     Example:
-        >>> from multiagenticsystem.logging import setup_logging
+        >>> from multiagenticswarm.logging import setup_logging
         >>> log_info = setup_logging(verbose=True)
         >>> print(f"Logs are stored in: {log_info['log_directory']}")
     """
@@ -72,7 +72,7 @@ def view_logs(lines: int = 50, log_type: str = "text") -> None:
         log_type: Type of logs to view ("text" or "json")
         
     Example:
-        >>> from multiagenticsystem.logging import view_logs
+        >>> from multiagenticswarm.logging import view_logs
         >>> view_logs(100)  # View last 100 lines
     """
     view_latest_logs(lines, log_type)
@@ -88,7 +88,7 @@ def search_logs_func(query: str, log_type: str = "text", case_sensitive: bool = 
         case_sensitive: Whether search should be case sensitive
         
     Example:
-        >>> from multiagenticsystem.logging import search_logs
+        >>> from multiagenticswarm.logging import search_logs
         >>> search_logs("error")  # Find all error entries
         >>> search_logs("agent_action")  # Find all agent actions
     """
@@ -100,7 +100,7 @@ def get_summary() -> None:
     Display a summary of system activity.
     
     Example:
-        >>> from multiagenticsystem.logging import get_summary
+        >>> from multiagenticswarm.logging import get_summary
         >>> get_summary()
     """
     get_system_summary()
@@ -114,7 +114,7 @@ def get_config() -> Dict[str, Any]:
         Dictionary with current logging settings
         
     Example:
-        >>> from multiagenticsystem.logging import get_config
+        >>> from multiagenticswarm.logging import get_config
         >>> config = get_config()
         >>> print(f"Session ID: {config.get('session_id')}")
     """
@@ -132,7 +132,7 @@ def get_logs_for_agent(agent_name: str) -> List[Dict[str, Any]]:
         List of log entries for the agent
         
     Example:
-        >>> from multiagenticsystem.logging import get_logs_for_agent
+        >>> from multiagenticswarm.logging import get_logs_for_agent
         >>> logs = get_logs_for_agent("DataAnalyst")
         >>> print(f"Found {len(logs)} log entries for DataAnalyst")
     """
@@ -151,7 +151,7 @@ def get_logs_for_session(session_id: str) -> List[Dict[str, Any]]:
         List of log entries for the session
         
     Example:
-        >>> from multiagenticsystem.logging import get_logs_for_session
+        >>> from multiagenticswarm.logging import get_logs_for_session
         >>> logs = get_logs_for_session("20250623_141500")
         >>> print(f"Found {len(logs)} log entries for session")
     """
@@ -170,7 +170,7 @@ def get_llm_logs(provider: Optional[str] = None) -> List[Dict[str, Any]]:
         List of LLM log entries
         
     Example:
-        >>> from multiagenticsystem.logging import get_llm_logs
+        >>> from multiagenticswarm.logging import get_llm_logs
         >>> logs = get_llm_logs("openai")  # Only OpenAI logs
         >>> all_llm_logs = get_llm_logs()  # All LLM logs
     """
@@ -197,7 +197,7 @@ def export_logs(
         True if export successful
         
     Example:
-        >>> from multiagenticsystem.logging import export_logs
+        >>> from multiagenticswarm.logging import export_logs
         >>> export_logs("my_session_logs.json", session_id="20250623_141500")
     """
     import json

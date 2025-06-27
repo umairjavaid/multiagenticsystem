@@ -1,5 +1,5 @@
 """
-MultiAgenticSystem - A powerful LangGraph-based multi-agent system
+MultiAgenticSwarm - A powerful LangGraph-based multi-agent system
 with dynamic configuration and hierarchical tool sharing.
 """
 
@@ -64,8 +64,8 @@ except ImportError as e:
     LogViewer = None
 
 __version__ = "0.1.0"
-__author__ = "MultiAgenticSystem Team"
-__email__ = "contact@multiagenticsystem.dev"
+__author__ = "MultiAgenticSwarm Team"
+__email__ = "contact@multiagenticswarm.dev"
 
 __all__ = [
     # Core components (may be None if import fails)

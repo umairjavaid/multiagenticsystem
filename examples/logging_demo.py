@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Comprehensive demonstration of the MultiAgenticSystem logging capabilities.
+Comprehensive demonstration of the MultiAgenticSwarm logging capabilities.
 
 This script shows how to:
 1. Setup comprehensive logging
@@ -17,20 +17,20 @@ import sys
 import time
 from pathlib import Path
 
-# Add the parent directory to sys.path so we can import multiagenticsystem
+# Add the parent directory to sys.path so we can import multiagenticswarm
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
-    # Import the multiagenticsystem package
-    import multiagenticsystem as mas
-    from multiagenticsystem.logging import (
+    # Import the multiagenticswarm package
+    import multiagenticswarm as mas
+    from multiagenticswarm.logging import (
         setup_logging, view_logs, search_logs, get_summary,
         get_logs_for_agent, get_llm_logs, export_logs,
         log_info, log_debug, log_warning, log_error
     )
-    print("✅ Successfully imported multiagenticsystem with logging")
+    print("✅ Successfully imported multiagenticswarm with logging")
 except ImportError as e:
-    print(f"❌ Failed to import multiagenticsystem: {e}")
+    print(f"❌ Failed to import multiagenticswarm: {e}")
     sys.exit(1)
 
 
@@ -60,7 +60,7 @@ def demo_basic_logging():
 
 
 def demo_system_with_logging():
-    """Demonstrate using the multiagenticsystem with comprehensive logging."""
+    """Demonstrate using the multiagenticswarm with comprehensive logging."""
     print("\n" + "="*60)
     print("🤖 DEMO: System Usage with Logging")
     print("="*60)
@@ -245,8 +245,8 @@ def demo_flutter_app_builder_integration():
     demo_code = '''
 # In your flutter_app_builder script:
 
-import multiagenticsystem as mas
-from multiagenticsystem.logging import setup_logging, view_logs, get_summary
+import multiagenticswarm as mas
+from multiagenticswarm.logging import setup_logging, view_logs, get_summary
 
 # Setup logging at the beginning
 log_config = setup_logging(
@@ -276,7 +276,7 @@ mas.export_logs("./flutter_builder_logs/session_export.json")
 
 def main():
     """Run all logging demonstrations."""
-    print("🚀 MultiAgenticSystem Comprehensive Logging Demo")
+    print("🚀 MultiAgenticSwarm Comprehensive Logging Demo")
     print("=" * 60)
     
     try:

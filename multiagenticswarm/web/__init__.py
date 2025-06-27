@@ -1,5 +1,5 @@
 """
-Web interface package for multiagenticsystem.
+Web interface package for MultiAgenticSwarm.
 """
 
 from .app import create_app
