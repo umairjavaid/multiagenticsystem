@@ -21,6 +21,8 @@ class MockTool(BaseTool):
         self.should_fail = should_fail
         self.delay = delay
         self.execution_count = 0
+        # Default to global access for testing unless specifically configured otherwise
+        self.is_global = True
     
     async def _execute_impl(self, **kwargs) -> Any:
         """Implementation required by BaseTool."""
@@ -55,9 +57,6 @@ class MockTool(BaseTool):
             result=f"Mock result from {self.name} for {agent_name}",
             success=True
         )
-    
-    def can_be_used_by(self, agent):
-        return True  # Allow all agents for testing
 
 
 class TestToolExecutorBasics:
