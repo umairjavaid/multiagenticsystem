@@ -4,6 +4,7 @@ Comprehensive test suite for ToolExecutor functionality.
 import pytest
 import asyncio
 import time
+from typing import Any
 from unittest.mock import Mock, AsyncMock, patch
 
 from multiagenticswarm.core.tool_executor import ToolExecutor
@@ -20,6 +21,18 @@ class MockTool(BaseTool):
         self.should_fail = should_fail
         self.delay = delay
         self.execution_count = 0
+    
+    async def _execute_impl(self, **kwargs) -> Any:
+        """Implementation required by BaseTool."""
+        self.execution_count += 1
+        
+        if self.delay > 0:
+            await asyncio.sleep(self.delay)
+        
+        if self.should_fail:
+            raise Exception("Mock tool failure")
+        
+        return f"Mock result from {self.name}"
     
     async def execute(self, request, agent_name):
         self.execution_count += 1
@@ -316,6 +329,9 @@ class TestToolExecution:
         executor = ToolExecutor()
         
         class ExceptionTool(BaseTool):
+            async def _execute_impl(self, **kwargs) -> Any:
+                raise RuntimeError("Unexpected error")
+            
             async def execute(self, request, agent_name):
                 raise RuntimeError("Unexpected error")
             

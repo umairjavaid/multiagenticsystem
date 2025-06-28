@@ -164,6 +164,8 @@ class Trigger:
             return eval(condition, {"event": event})
             
         except Exception as e:
+            self.error_count += 1
+            self.last_error = str(e)
             logger.warning(f"Condition evaluation failed for '{self.condition_string}': {e}")
             return False
     
@@ -178,7 +180,10 @@ class Trigger:
     def reset(self) -> None:
         """Reset trigger to active state."""
         self.status = TriggerStatus.ACTIVE
+        self.trigger_count = 0
+        self.error_count = 0
         self.last_error = None
+        self.last_triggered = None
         
         logger.debug(f"Reset trigger '{self.name}'")
     
@@ -234,7 +239,7 @@ class Trigger:
         return trigger
     
     def __repr__(self) -> str:
-        return f"Trigger(name='{self.name}', type='{self.trigger_type.value}', status='{self.status.value}')"
+        return f"Trigger(name='{self.name}', type='{self.trigger_type.value.upper()}', status='{self.status.value}')"
 
 
 # Built-in trigger factories

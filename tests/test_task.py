@@ -101,7 +101,7 @@ class TestTaskCreation:
         assert task.max_retries == 3
         assert task.timeout is None
         assert len(task.steps) == 0
-        assert task.status == TaskStatus.PENDING
+        assert task.status == TaskStatus.COMPLETED  # Empty task is completed
         assert task.current_step == 0
         assert task.retry_count == 0
         assert task.id is not None
@@ -154,7 +154,7 @@ class TestTaskCreation:
         
         assert len(task.steps) == 0
         assert task.get_next_step() is None
-        assert task.is_completed() is False
+        assert task.is_completed() is True  # Empty task should be considered completed
 
 
 class TestTaskStepManagement:

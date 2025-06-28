@@ -229,6 +229,8 @@ class TestFunctionTool:
             func=failing_func,
             description="A tool that always fails"
         )
+        # Set tool to global access for testing
+        tool.set_global()
         
         request = ToolCallRequest(
             id="fail-id",
@@ -255,6 +257,8 @@ class TestFunctionTool:
             func=async_operation,
             description="An async operation"
         )
+        # Set tool to global access for testing
+        tool.set_global()
         
         request = ToolCallRequest(
             id="async-id",
@@ -440,13 +444,8 @@ class TestToolEdgeCases:
         """Test tool creation without function."""
         # This should work for abstract tools
         class TestTool(BaseTool):
-            async def execute(self, request, agent_name):
-                return ToolCallResponse(
-                    id=request.id,
-                    name=request.name,
-                    result="test result",
-                    success=True
-                )
+            async def _execute_impl(self, **kwargs):
+                return "test result"
         
         tool = TestTool(name="no_func_tool", description="No function tool")
         assert tool.name == "no_func_tool"
@@ -565,6 +564,8 @@ class TestToolPerformance:
             func=slow_func,
             description="Timing test tool"
         )
+        # Set tool to global access for testing
+        tool.set_global()
         
         request = ToolCallRequest(
             id="timing-id",
@@ -591,6 +592,8 @@ class TestToolPerformance:
             func=concurrent_func,
             description="Concurrent test tool"
         )
+        # Set tool to global access for testing
+        tool.set_global()
         
         # Create multiple requests
         requests = [

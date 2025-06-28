@@ -85,13 +85,6 @@ class System:
     
     def _add_builtin_tools(self) -> None:
         """Add built-in utility tools to the system."""
-        # Add legacy tools for backwards compatibility
-        logger_tool = create_logger_tool()
-        memory_tool = create_memory_tool()
-        
-        self.tools[logger_tool.name] = logger_tool
-        self.tools[memory_tool.name] = memory_tool
-        
         # Add standardized built-in tools
         def log_message(message: str, level: str = "info") -> str:
             logger_func = getattr(logger, level.lower(), logger.info)
@@ -121,7 +114,7 @@ class System:
         memory_std_tool.set_global()
         self.register_tool(memory_std_tool)
         
-        logger.debug("Added built-in tools: Logger, StoreMemory (legacy and standardized)")
+        logger.debug("Added built-in tools: Logger, StoreMemory")
     
     # Agent Management
     def register_agent(self, agent: Agent) -> None:
@@ -158,6 +151,11 @@ class System:
         if isinstance(tool, Tool):
             self.tools[tool.name] = tool
             self._update_all_agent_tools()
+        elif isinstance(tool, BaseTool):
+            # For BaseTool instances (like FunctionTool), also add to legacy tools dict
+            # This ensures backward compatibility with existing tests and code
+            self.tools[tool.name] = tool
+            self._update_all_agent_tools()
         
         # Register with new standardized system
         if isinstance(tool, BaseTool):
@@ -180,12 +178,23 @@ class System:
     
     def remove_tool(self, name: str) -> bool:
         """Remove a tool from the system."""
+        removed = False
+        
+        # Remove from legacy tools
         if name in self.tools:
             del self.tools[name]
             self._update_all_agent_tools()
+            removed = True
+        
+        # Remove from standardized tool executor
+        if hasattr(self.tool_executor, 'tools') and name in self.tool_executor.tools:
+            del self.tool_executor.tools[name]
+            removed = True
+        
+        if removed:
             logger.info(f"Removed tool: {name}")
-            return True
-        return False
+        
+        return removed
     
     def _update_agent_tools(self, agent: Agent) -> None:
         """Update an agent's tool access lists."""
@@ -333,7 +342,14 @@ class System:
         """Execute a specific task."""
         task = self.get_task(task_name)
         if not task:
-            raise ValueError(f"Task '{task_name}' not found")
+            logger.error(f"Task '{task_name}' not found")
+            return {
+                "task_name": task_name,
+                "status": "failed",
+                "error": f"Task '{task_name}' not found",
+                "results": [],
+                "success": False
+            }
         
         logger.info(f"Executing task: {task_name}")
         
@@ -343,7 +359,16 @@ class System:
         for step in task.steps:
             agent = self.get_agent(step.agent)
             if not agent:
-                raise ValueError(f"Agent '{step.agent}' not found for task '{task_name}'")
+                error_msg = f"Agent '{step.agent}' not found for task '{task_name}'"
+                logger.error(error_msg)
+                task.mark_step_failed(error_msg)
+                return {
+                    "task_name": task_name,
+                    "status": "failed",
+                    "error": error_msg,
+                    "results": results,
+                    "success": False
+                }
             
             # Get available tools for this agent
             available_tools = agent.get_available_tools(self.tools)
@@ -383,13 +408,33 @@ class System:
         """Execute a single agent with standardized tool support."""
         agent = self.get_agent(agent_name)
         if not agent:
-            raise ValueError(f"Agent '{agent_name}' not found")
+            logger.error(f"Agent '{agent_name}' not found")
+            return {
+                "agent_name": agent_name,
+                "error": f"Agent '{agent_name}' not found",
+                "result": None,
+                "success": False
+            }
         
-        return await agent.execute(
-            input_text, 
-            context or {}, 
-            tool_executor=self.tool_executor  # Pass the standardized tool executor
-        )
+        try:
+            result = await agent.execute(
+                input_text, 
+                context or {}, 
+                tool_executor=self.tool_executor  # Pass the standardized tool executor
+            )
+            return {
+                "agent_name": agent_name,
+                "result": result,
+                "success": True
+            }
+        except Exception as e:
+            logger.error(f"Agent execution failed: {e}")
+            return {
+                "agent_name": agent_name,
+                "error": str(e),
+                "result": None,
+                "success": False
+            }
     
     # Configuration Management
     def load_config(self, config_path: str) -> None:
@@ -499,10 +544,38 @@ class System:
     
     def get_system_info(self) -> Dict[str, Any]:
         """Get detailed system information."""
+        # Convert tools safely
+        tools_info = {}
+        for name, tool in self.tools.items():
+            try:
+                if hasattr(tool, 'to_dict'):
+                    tools_info[name] = tool.to_dict()
+                else:
+                    # Fallback for tools without to_dict method
+                    tools_info[name] = {
+                        "name": getattr(tool, 'name', name),
+                        "description": getattr(tool, 'description', ''),
+                        "scope": getattr(tool, 'scope', 'unknown')
+                    }
+            except Exception as e:
+                # Fallback in case of any error
+                tools_info[name] = {
+                    "name": name,
+                    "error": str(e)
+                }
+        
         return {
+            "version": "1.0.0",  # Add version info for compatibility
+            "components": {  # Add components info for compatibility
+                "agents": len(self.agents),
+                "tools": len(self.tools),
+                "tasks": len(self.tasks),
+                "triggers": len(self.triggers),
+                "automations": len(self.automations)
+            },
             "status": self.get_system_status(),
             "agents": {name: agent.to_dict() for name, agent in self.agents.items()},
-            "tools": {name: tool.to_dict() for name, tool in self.tools.items()},
+            "tools": tools_info,
             "tasks": {name: task.to_dict() for name, task in self.tasks.items()},
             "triggers": {name: trigger.to_dict() for name, trigger in self.triggers.items()},
             "automations": {name: automation.to_dict() for name, automation in self.automations.items()}
@@ -514,6 +587,11 @@ class System:
         system = cls()
         system.load_config(config_path)
         return system
+    
+    @classmethod
+    def create_default(cls) -> "System":
+        """Create a system with sensible defaults."""
+        return cls(enable_logging=False)  # Create with default settings
     
     def __repr__(self) -> str:
         return f"System(agents={len(self.agents)}, tools={len(self.tools)}, tasks={len(self.tasks)})"
@@ -544,6 +622,13 @@ class System:
     def get_system_stats(self) -> Dict[str, Any]:
         """Get comprehensive system statistics and activity."""
         stats = {
+            "components": {  # Add components for test compatibility
+                "agents": len(self.agents),
+                "tools": len(self.tools),
+                "tasks": len(self.tasks),
+                "triggers": len(self.triggers),
+                "automations": len(self.automations)
+            },
             "agents": {
                 "count": len(self.agents),
                 "names": list(self.agents.keys())

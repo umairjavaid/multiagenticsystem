@@ -305,6 +305,34 @@ class BaseTool(ABC):
             return agent_name in self.shared_agents
         
         return False
+    
+    # Backward compatibility aliases
+    def set_local_agent(self, agent: Union[str, "Agent"]) -> "BaseTool":
+        """Backward compatibility alias for set_local."""
+        return self.set_local(agent)
+    
+    def set_shared_agents(self, agents: List[Union[str, "Agent"]]) -> "BaseTool":
+        """Backward compatibility alias for set_shared."""
+        return self.set_shared(*agents)
+    
+    def set_global_agent(self) -> "BaseTool":
+        """Backward compatibility alias for set_global."""
+        return self.set_global()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert tool to dictionary representation."""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "parameters": self.parameters,
+            "scope": self.scope.value,
+            "tool_id": self.tool_id,
+            "local_agent": self.local_agent,
+            "shared_agents": self.shared_agents,
+            "is_global": self.is_global,
+            "usage_count": self.usage_count,
+            "last_used_by": self.last_used_by
+        }
 
 
 class PydanticTool(BaseTool):
@@ -354,6 +382,7 @@ class FunctionTool(BaseTool):
         func: Callable,
         name: Optional[str] = None,
         description: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = None,
         scope: ToolScope = ToolScope.LOCAL
     ):
         self.func = func
@@ -362,7 +391,8 @@ class FunctionTool(BaseTool):
         name = name or func.__name__
         description = description or func.__doc__ or f"Function tool for {func.__name__}"
         
-        super().__init__(name, description, None, scope)
+        # Use provided parameters or auto-generate
+        super().__init__(name, description, parameters, scope)
     
     def _generate_parameters_schema(self) -> Dict[str, Any]:
         """Generate schema from function signature."""
@@ -406,4 +436,10 @@ class FunctionTool(BaseTool):
         if inspect.iscoroutinefunction(self.func):
             return await self.func(**kwargs)
         else:
-            return self.func(**kwargs)
+            # Run synchronous functions in a thread pool to enable concurrency
+            import asyncio
+            import concurrent.futures
+            
+            loop = asyncio.get_event_loop()
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                return await loop.run_in_executor(executor, lambda: self.func(**kwargs))

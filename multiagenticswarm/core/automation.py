@@ -3,6 +3,8 @@ Automation system that connects triggers to tasks.
 """
 
 import uuid
+import time
+import asyncio
 from typing import Any, Dict, List, Optional, Union
 from enum import Enum
 
@@ -89,7 +91,7 @@ class Automation:
                 self.tasks.append(task)
                 self.task_names.append(task.name)
         
-        self.name = name or f"Auto_{self.trigger_name}_{len(self.task_names)}"
+        self.name = name if name is not None else f"Auto_{self.trigger_name}_{len(self.task_names)}"
         self.description = description
         self.mode = mode
         self.conditions = conditions or {}
@@ -98,7 +100,12 @@ class Automation:
         # Execution tracking
         self.status = AutomationStatus.WAITING
         self.execution_count = 0
+        self.retry_count = 0
+        self.success_count = 0
+        self.failure_count = 0
+        self.total_execution_time = 0.0
         self.last_execution: Optional[str] = None
+        self.last_executed: Optional[str] = None
         self.last_result: Optional[Dict[str, Any]] = None
         self.error_count = 0
         self.last_error: Optional[str] = None
@@ -123,13 +130,28 @@ class Automation:
         # Check additional conditions
         if self.conditions:
             for condition_name, condition_value in self.conditions.items():
+                # Check if condition is met in either context or event
+                found_value = None
                 if condition_name in context:
-                    if context[condition_name] != condition_value:
-                        return False
+                    found_value = context[condition_name]
                 elif condition_name in event:
-                    if event[condition_name] != condition_value:
+                    found_value = event[condition_name]
+                # Handle special mappings like min_priority vs priority
+                elif condition_name == "min_priority" and "priority" in context:
+                    found_value = context["priority"]
+                    if found_value < condition_value:
                         return False
+                    continue
+                elif condition_name == "min_priority" and "priority" in event:
+                    found_value = event["priority"]
+                    if found_value < condition_value:
+                        return False
+                    continue
                 else:
+                    return False
+                
+                # For regular conditions, values must match exactly
+                if found_value != condition_value:
                     return False
         
         # Check mode-specific conditions
@@ -146,7 +168,7 @@ class Automation:
         task_registry: Dict[str, Task]
     ) -> Dict[str, Any]:
         """
-        Execute the automation.
+        Execute the automation with retry logic.
         
         Args:
             event: Triggering event
@@ -168,85 +190,122 @@ class Automation:
         self.execution_count += 1
         self.last_execution = logger.name  # Placeholder for timestamp
         
-        try:
-            results = []
-            
-            # Execute tasks in sequence
-            for task_name in self.task_names:
-                task = task_registry.get(task_name)
-                if not task:
-                    raise ValueError(f"Task '{task_name}' not found in registry")
+        max_retries = self.retry_policy.get("max_retries", 3)
+        retry_delay = self.retry_policy.get("delay", 1.0)
+        
+        for attempt in range(max_retries + 1):
+            try:
+                start_time = time.time()
+                results = []
                 
-                # Execute task (this would integrate with the task execution system)
-                task_result = {
-                    "task_name": task_name,
-                    "status": "simulated",  # Placeholder
-                    "result": f"Executed task '{task_name}' in automation '{self.name}'"
+                # Execute tasks in sequence
+                for task_name in self.task_names:
+                    task = task_registry.get(task_name)
+                    if not task:
+                        raise ValueError(f"Task '{task_name}' not found in registry")
+                    
+                    # Execute task using its execute method
+                    if hasattr(task, 'execute'):
+                        task_result = await task.execute(context)
+                    else:
+                        # Fallback for tasks without execute method
+                        task_result = {
+                            "task_name": task_name,
+                            "status": "simulated",
+                            "result": f"Executed task '{task_name}' in automation '{self.name}'"
+                        }
+                    
+                    results.append(task_result)
+                    
+                    logger.debug(f"Automation '{self.name}' executed task '{task_name}'")
+                
+                execution_time = time.time() - start_time
+                self.total_execution_time += execution_time
+                self.success_count += 1
+                self.status = AutomationStatus.COMPLETED
+                self.last_result = {
+                    "success": True,
+                    "tasks_executed": len(results),
+                    "results": results,
+                    "execution_time": execution_time
                 }
                 
-                results.append(task_result)
+                # Add to execution history
+                self.execution_history.append({
+                    "timestamp": self.last_execution,
+                    "event": str(event)[:100],
+                    "status": "completed",
+                    "tasks_executed": len(results),
+                    "success": True
+                })
                 
-                logger.debug(f"Automation '{self.name}' executed task '{task_name}'")
-            
-            self.status = AutomationStatus.COMPLETED
-            self.last_result = {
-                "success": True,
-                "tasks_executed": len(results),
-                "results": results
-            }
-            
-            # Add to execution history
-            self.execution_history.append({
-                "timestamp": self.last_execution,
-                "event": str(event)[:100],
-                "status": "completed",
-                "tasks_executed": len(results),
-                "success": True
-            })
-            
-            logger.info(f"Automation '{self.name}' completed successfully")
-            
-            return {
-                "automation_id": self.id,
-                "automation_name": self.name,
-                "status": "completed",
-                "execution_count": self.execution_count,
-                "results": results,
-                "success": True
-            }
-            
-        except Exception as e:
-            self.status = AutomationStatus.FAILED
-            self.error_count += 1
-            self.last_error = str(e)
-            
-            # Add to execution history
-            self.execution_history.append({
-                "timestamp": self.last_execution,
-                "event": str(event)[:100],
-                "status": "failed",
-                "error": str(e),
-                "success": False
-            })
-            
-            logger.error(f"Automation '{self.name}' failed: {e}")
-            
-            return {
-                "automation_id": self.id,
-                "automation_name": self.name,
-                "status": "failed",
-                "error": str(e),
-                "success": False
-            }
+                logger.info(f"Automation '{self.name}' completed successfully")
+                
+                return {
+                    "automation_id": self.id,
+                    "automation_name": self.name,
+                    "status": "completed",
+                    "execution_count": self.execution_count,
+                    "results": results,
+                    "success": True
+                }
+                
+            except Exception as e:
+                if attempt < max_retries:
+                    self.retry_count = attempt + 1
+                    logger.warning(f"Automation '{self.name}' attempt {attempt + 1} failed: {e}. Retrying in {retry_delay}s...")
+                    await asyncio.sleep(retry_delay)
+                    continue
+                else:
+                    # Final failure after all retries
+                    self.retry_count = max_retries
+                    self.status = AutomationStatus.FAILED
+                    self.error_count += 1
+                    self.last_error = str(e)
+                    self.failure_count += 1
+                    
+                    # Add to execution history
+                    self.execution_history.append({
+                        "timestamp": self.last_execution,
+                        "event": str(event)[:100],
+                        "status": "failed",
+                        "error": str(e),
+                        "success": False
+                    })
+                    
+                    logger.error(f"Automation '{self.name}' failed: {e}")
+                    
+                    return {
+                        "automation_id": self.id,
+                        "automation_name": self.name,
+                        "status": "failed",
+                        "error": str(e),
+                        "success": False
+                    }
         
-        finally:
-            if self.status == AutomationStatus.RUNNING:
-                self.status = AutomationStatus.WAITING
+        # This should not be reached
+        return {
+            "automation_id": self.id,
+            "automation_name": self.name,
+            "status": "failed",
+            "error": "Unknown error",
+            "success": False
+        }
     
     def reset(self) -> None:
         """Reset automation to waiting state."""
         self.status = AutomationStatus.WAITING
+        self.execution_count = 0
+        self.retry_count = 0
+        self.success_count = 0
+        self.failure_count = 0
+        self.total_execution_time = 0.0
+        self.last_execution = None
+        self.last_executed = None
+        self.last_result = None
         self.last_error = None
+        self.error_count = 0
+        self.execution_history = []
         logger.debug(f"Reset automation '{self.name}'")
     
     def cancel(self) -> None:
@@ -256,13 +315,22 @@ class Automation:
     
     def get_statistics(self) -> Dict[str, Any]:
         """Get automation execution statistics."""
+        avg_execution_time = (
+            self.total_execution_time / self.execution_count
+            if self.execution_count > 0 else 0.0
+        )
+        
         return {
             "execution_count": self.execution_count,
+            "success_count": self.success_count,
+            "failure_count": self.failure_count,
             "error_count": self.error_count,
             "success_rate": (
-                (self.execution_count - self.error_count) / self.execution_count
+                self.success_count / self.execution_count
                 if self.execution_count > 0 else 0.0
             ),
+            "average_execution_time": avg_execution_time,
+            "total_execution_time": self.total_execution_time,
             "last_execution": self.last_execution,
             "last_error": self.last_error,
             "current_status": self.status.value
@@ -305,8 +373,8 @@ class Automation:
         else:
             trigger = trigger_name  # Use name as placeholder
         
-        # Get task sequence
-        task_sequence = data.get("task", data.get("sequence", []))
+        # Get task sequence - prioritize task_names if present
+        task_sequence = data.get("task_names", data.get("task", data.get("sequence", [])))
         if isinstance(task_sequence, str):
             task_sequence = [task_sequence]
         
